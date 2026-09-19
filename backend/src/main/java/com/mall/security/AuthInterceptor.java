@@ -37,11 +37,11 @@ public class AuthInterceptor implements HandlerInterceptor {
 
     private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
 
-    /** 任意请求方法放行的路径（完整 URI，含 context-path=/api 前缀） */
+    /** 任意请求方法放行的路径（相对 context-path 的路径，不含 /api 前缀） */
     private static final List<String> WHITE_LIST = List.of(
-            "/api/user/login",
-            "/api/user/register",
-            "/api/health",
+            "/user/login",
+            "/user/register",
+            "/health",
             "/doc.html",
             "/v3/api-docs/**",
             "/swagger-resources/**",
@@ -52,12 +52,12 @@ public class AuthInterceptor implements HandlerInterceptor {
 
     /** 仅 GET 请求放行的路径 */
     private static final List<String> WHITE_LIST_GET = List.of(
-            "/api/product/**",
-            "/api/search/**",
-            "/api/seckill/activity"
+            "/product/**",
+            "/search/**",
+            "/seckill/activity"
     );
 
-    private static final String ADMIN_PATH_PATTERN = "/api/admin/**";
+    private static final String ADMIN_PATH_PATTERN = "/admin/**";
 
     private final JwtUtils jwtUtils;
     private final StringRedisTemplate stringRedisTemplate;
@@ -65,15 +65,18 @@ public class AuthInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
-        String uri = request.getRequestURI();
+        // 剥离 context-path（/api），统一用相对路径做白名单与管理员路径匹配
+        String contextPath = request.getContextPath();
+        String path = contextPath.isEmpty() ? request.getRequestURI()
+                : request.getRequestURI().substring(contextPath.length());
 
-        if (isWhitelisted(uri, request.getMethod())) {
+        if (isWhitelisted(path, request.getMethod())) {
             return true;
         }
 
         String header = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (header == null || !header.startsWith("Bearer ")) {
-            log.debug("拦截未登录请求: uri={}, 缺少 Authorization 头", uri);
+            log.debug("拦截未登录请求: uri={}, 缺少 Authorization 头", path);
             writeError(response, HttpServletResponse.SC_UNAUTHORIZED, Result.CODE_UNAUTHORIZED, "未登录");
             return false;
         }
@@ -83,18 +86,18 @@ public class AuthInterceptor implements HandlerInterceptor {
         try {
             claims = jwtUtils.parseToken(token);
         } catch (ExpiredJwtException e) {
-            log.debug("拦截过期令牌: uri={}, msg={}", uri, e.getMessage());
+            log.debug("拦截过期令牌: uri={}, msg={}", path, e.getMessage());
             writeError(response, HttpServletResponse.SC_UNAUTHORIZED, Result.CODE_UNAUTHORIZED, "登录已过期，请重新登录");
             return false;
         } catch (JwtException | IllegalArgumentException e) {
-            log.warn("拦截无效令牌: uri={}, error={}", uri, e.getMessage());
+            log.warn("拦截无效令牌: uri={}, error={}", path, e.getMessage());
             writeError(response, HttpServletResponse.SC_UNAUTHORIZED, Result.CODE_UNAUTHORIZED, "登录状态无效，请重新登录");
             return false;
         }
 
         Boolean exists = stringRedisTemplate.hasKey(TOKEN_KEY_PREFIX + token);
         if (!Boolean.TRUE.equals(exists)) {
-            log.debug("拦截失效会话: uri={}", uri);
+            log.debug("拦截失效会话: uri={}", path);
             writeError(response, HttpServletResponse.SC_UNAUTHORIZED, Result.CODE_UNAUTHORIZED, "会话不存在或已失效，请重新登录");
             return false;
         }
@@ -103,8 +106,8 @@ public class AuthInterceptor implements HandlerInterceptor {
         String username = claims.get(JwtUtils.CLAIM_USERNAME, String.class);
         Integer role = claims.get(JwtUtils.CLAIM_ROLE, Integer.class);
 
-        if (PATH_MATCHER.match(ADMIN_PATH_PATTERN, uri) && !Integer.valueOf(ROLE_ADMIN).equals(role)) {
-            log.warn("拦截越权访问管理接口: uri={}, userId={}, role={}", uri, userId, role);
+        if (PATH_MATCHER.match(ADMIN_PATH_PATTERN, path) && !Integer.valueOf(ROLE_ADMIN).equals(role)) {
+            log.warn("拦截越权访问管理接口: uri={}, userId={}, role={}", path, userId, role);
             writeError(response, HttpServletResponse.SC_FORBIDDEN, Result.CODE_FORBIDDEN, "无权限访问");
             return false;
         }

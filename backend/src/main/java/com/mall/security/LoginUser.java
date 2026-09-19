@@ -27,7 +27,7 @@ public class LoginUser {
         return HOLDER.get();
     }
 
-    public static Long getUserId() {
+    public static Long getCurrentUserId() {
         LoginUser loginUser = HOLDER.get();
         return loginUser == null ? null : loginUser.getUserId();
     }

@@ -41,6 +41,11 @@ public class JwtUtils {
                 .compact();
     }
 
+    /** token 有效期（毫秒），登录时 Redis 会话 TTL 应与此保持一致 */
+    public long getExpireMillis() {
+        return expireMillis;
+    }
+
     /**
      * 解析并校验 token。签名非法、被篡改或已过期时抛出 {@link io.jsonwebtoken.JwtException}。
      */

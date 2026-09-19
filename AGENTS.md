@@ -69,17 +69,17 @@ my_mall/
 │       └── broker.conf      # Broker 配置（autoCreateTopicEnable=true 等）
 ├── frontend/                # Vue3 + TS 前端（已存在）
 └── backend/                 # Spring Boot 后端（单体，按业务包划分）
-    └── src/main/java/com/example/mall/
-        ├── common/          # Result<T>、异常、常量、工具类
-        ├── config/          # MyBatis-Plus / Redis / Web 等配置
-        ├── security/        # Spring Security、JWT 过滤器
-        ├── user/            # 用户、地址（ums_*）
-        ├── product/         # 分类、商品、SKU（pms_*）
-        ├── search/          # ES 商品搜索
-        ├── cart/            # 购物车（Redis）
-        ├── order/           # 订单（oms_*）
-        ├── seckill/         # 秒杀（sms_*）
-        └── admin/           # 后台管理接口
+    └── src/main/java/com/mall/
+        ├── common/          # Result<T>/PageResult、BizException、全局异常处理、HealthController
+        ├── config/          # MyBatis-Plus / Knife4j / Web（跨域）等配置
+        ├── security/        # JwtUtils、AuthInterceptor（登录/管理员校验）、LoginUser 上下文
+        ├── user/            # 用户、地址（ums_*）—— 待开发
+        ├── product/         # 分类、商品、SKU（pms_*）—— 待开发
+        ├── search/          # ES 商品搜索 —— 待开发
+        ├── cart/            # 购物车（Redis）—— 待开发
+        ├── order/           # 订单（oms_*）—— 待开发
+        ├── seckill/         # 秒杀（sms_*）—— 待开发
+        └── admin/           # 后台管理接口 —— 待开发
 ```
 
 每个业务包内部分层：`controller` / `service`（接口 + `service/impl` 实现）/ `mapper` / `entity` / `dto`。
@@ -118,9 +118,22 @@ npm run build          # 生产构建
 
 ## 7. Git 约定
 
+- 远程仓库：`git@github.com:ssmzl/my_mall.git`（main 分支）。
 - 除非用户明确要求，**默认不执行任何 git 操作**（commit / push / branch / merge 等一律先征得同意）。
 
-## 8. 中间件使用要点
+## 8. 当前进度
+
+> **进度管理约定（必须遵守）**：每完成一个任务（或子任务），必须同步更新两处，缺一不可：
+> 1. `.trae/specs/init-mall-project/tasks.md` —— 勾选对应任务/子任务，并补注实现要点（接口路径、关键设计决策、测试情况）；
+> 2. 本文件（`AGENTS.md`）—— 更新第 8 节「当前进度」清单；若实现过程产生了新的约定、踩坑记录或中间件注意事项，一并补充到对应章节。
+> 两者更新后才算该任务完成。
+
+- [x] 基础设施：`deploy/docker-compose.yml`（MySQL 8 / Redis 7 / RocketMQ 5 / ES 8.15 / Kibana）+ 初始化 SQL + 种子数据，已验证可连通（详见第 9 节注意事项）
+- [x] 后端骨架：`backend/`（包名 `com.mall`）—— Result/PageResult、全局异常、JWT 工具 + 登录拦截器、Knife4j、application-dev.yml（MySQL 走 3307）、JwtUtilsTest / ResultTest
+- [x] 用户模块：`com.mall.user` —— 注册/登录/登出（BCrypt、JWT + Redis 会话 `mall:token:{token}`）、收货地址 CRUD（默认地址唯一由应用层事务保证、归属校验防越权）；接口前缀 `/api/user`、`/api/address`（详见 tasks.md Task 3）；UserServiceImplTest / AddressServiceImplTest 共 15 个单测
+- [ ] 商品模块 + 缓存三防、ES 搜索、购物车、订单 + 延迟关单、秒杀、后台管理、前端页面（详细拆解见 `.trae/specs/init-mall-project/tasks.md`）
+
+## 9. 中间件使用要点
 
 ### 连接信息（宿主机视角）
 
@@ -161,14 +174,14 @@ docker restart my-mall-elasticsearch
 
 **降级策略**：若 IK 不可用（未安装/装失败），建索引时先用 ES 内置 `standard` 分词器顶上，代码层（search 模块）会对分词器做兼容处理，不阻塞开发进度。
 
-## 9. 环境要求
+## 10. 环境要求
 
 - Docker Desktop（Windows，Linux 容器模式）
 - JDK 17+
 - Node.js 20+
 - Maven 3.8+（或使用 mvnw）
 
-## 10. 演示账号
+## 11. 演示账号
 
 | 账号 | 密码 | 角色 |
 | --- | --- | --- |
