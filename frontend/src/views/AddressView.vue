@@ -134,11 +134,18 @@ onMounted(refresh)
     </div>
 
     <div v-if="list.length > 0" class="addr-grid">
-      <el-card v-for="addr in list" :key="addr.id" class="addr-card" shadow="hover">
+      <el-card
+        v-for="addr in list"
+        :key="addr.id"
+        class="addr-card"
+        :class="{ 'is-default': addr.isDefault === 1 }"
+        shadow="hover"
+      >
         <div class="addr-head">
+          <el-icon :size="18" class="addr-icon"><Location /></el-icon>
           <span class="addr-name">{{ addr.receiverName }}</span>
           <span class="addr-phone">{{ addr.receiverPhone }}</span>
-          <el-tag v-if="addr.isDefault === 1" type="danger" size="small">默认</el-tag>
+          <el-tag v-if="addr.isDefault === 1" type="danger" size="small" effect="light">默认</el-tag>
         </div>
         <div class="addr-detail">
           {{ addr.province }}{{ addr.city }}{{ addr.district }}{{ addr.detailAddress }}
@@ -223,6 +230,15 @@ onMounted(refresh)
 
 .addr-card {
   border-radius: 8px;
+}
+
+/* 默认地址卡片：品牌色描边突出 */
+.addr-card.is-default {
+  border-color: var(--mall-brand);
+}
+
+.addr-icon {
+  color: var(--mall-brand);
 }
 
 .addr-head {

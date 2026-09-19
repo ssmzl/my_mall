@@ -3,6 +3,7 @@ import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { useUserStore } from '@/stores/user'
+import AuthShell from '@/components/user/AuthShell.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -47,61 +48,43 @@ async function onSubmit() {
 </script>
 
 <template>
-  <div class="auth-page">
-    <el-card class="auth-card" shadow="always">
-      <h2 class="auth-title">账号登录</h2>
-      <el-form ref="formRef" :model="form" :rules="rules" label-position="top" size="large" @submit.prevent="onSubmit">
-        <el-form-item label="用户名" prop="username">
-          <el-input v-model="form.username" placeholder="4-20 个字符" clearable />
-        </el-form-item>
-        <el-form-item label="密码" prop="password">
-          <el-input v-model="form.password" type="password" placeholder="至少 6 位" show-password />
-        </el-form-item>
-        <el-button type="danger" size="large" class="submit-btn" :loading="loading" native-type="submit">
-          登 录
-        </el-button>
-      </el-form>
-      <div class="auth-footer">
-        还没有账号？
-        <RouterLink to="/register" class="link">立即注册</RouterLink>
-      </div>
-    </el-card>
-  </div>
+  <AuthShell title="账号登录" subtitle="欢迎回来，登录后继续购物">
+    <el-form ref="formRef" :model="form" :rules="rules" label-position="top" size="large" @submit.prevent="onSubmit">
+      <el-form-item label="用户名" prop="username">
+        <el-input v-model="form.username" placeholder="4-20 个字符" :prefix-icon="'User'" clearable />
+      </el-form-item>
+      <el-form-item label="密码" prop="password">
+        <el-input v-model="form.password" type="password" placeholder="至少 6 位" :prefix-icon="'Lock'" show-password />
+      </el-form-item>
+      <el-button type="danger" size="large" class="submit-btn" :loading="loading" native-type="submit">
+        登 录
+      </el-button>
+    </el-form>
+    <div class="auth-footer">
+      还没有账号？
+      <RouterLink to="/register" class="link">立即注册</RouterLink>
+    </div>
+  </AuthShell>
 </template>
 
 <style scoped>
-.auth-page {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 60vh;
-}
-
-.auth-card {
-  width: 400px;
-  border-radius: 8px;
-}
-
-.auth-title {
-  margin: 0 0 20px;
-  text-align: center;
-  font-size: 22px;
-  color: #333;
-}
-
 .submit-btn {
   width: 100%;
   margin-top: 4px;
+  border-radius: 22px;
+  font-weight: 600;
+  letter-spacing: 4px;
 }
 
 .auth-footer {
-  margin-top: 16px;
+  margin-top: 18px;
   text-align: center;
   font-size: 14px;
-  color: #666;
+  color: var(--mall-text-secondary);
 }
 
 .link {
-  color: #e93b3d;
+  color: var(--mall-brand);
+  font-weight: 600;
 }
 </style>

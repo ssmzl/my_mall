@@ -1,5 +1,17 @@
 @import './base.css';
 
+/* 主题变量：统一品牌色与基础色板（组件内通过 var() 引用，改这里即可全局换肤） */
+:root {
+  --mall-brand: #e93b3d;
+  --mall-brand-dark: #c62828;
+  --mall-brand-light: #fff1f0;
+  --mall-bg: #f5f6f8;
+  --mall-text: #303133;
+  --mall-text-regular: #606266;
+  --mall-text-secondary: #909399;
+  --mall-border: #ebeef5;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -14,7 +26,8 @@ body {
     'Microsoft YaHei',
     Arial,
     sans-serif;
-  background-color: #f4f4f4;
+  background-color: var(--mall-bg);
+  color: var(--mall-text);
 }
 
 #app {
@@ -25,9 +38,33 @@ a {
   text-decoration: none;
 }
 
+/* 全局卡片：悬浮阴影过渡（列表页/详情页通用） */
+.el-card {
+  transition: box-shadow 0.25s ease;
+}
+
+.el-card:hover {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
+}
+
+/* 细滚动条（桌面端观感） */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #dcdfe6;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #c0c4cc;
+}
+
 /* ES 高亮标签（搜索结果页使用） */
 em.highlight {
-  color: #e93b3d;
+  color: var(--mall-brand);
   font-style: normal;
   font-weight: 700;
 }

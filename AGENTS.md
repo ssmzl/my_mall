@@ -116,6 +116,16 @@ npm run build          # 生产构建
 - **SQL/表**：主键 `BIGINT AUTO_INCREMENT`；库存类字段 `INT UNSIGNED` 非负；金额 `DECIMAL(10,2)`；统一 `create_time` / `update_time`。
 - **前端**：Composition API + `<script setup lang="ts">`；接口统一走封装的 axios 实例。
 
+### 6.1 前端组件与样式约定
+
+- **通用组件放 `frontend/src/components/`，页面放 `views/`**：多个页面共用的 UI（导航栏、页脚、表单外壳等）必须抽成组件，**不允许在页面里复制粘贴同一份模板/样式**。
+  - `components/layout/`：全局布局组件（`AppHeader.vue` 顶部导航、`AppFooter.vue` 页脚），由 `App.vue` 统一引入。
+  - `components/user/`：用户模块共用组件（如 `AuthShell.vue` 登录/注册页外壳）。
+  - 后续若新增共用组件（如商品卡片、价格组件），按业务域建子目录存放。
+- **跨组件通信**：页面 → 头部这类「非父子」刷新场景，用 `defineExpose` 暴露方法 + 父组件（App.vue）转发事件（如购物车角标 `refreshCartCount`），不引入事件总线。
+- **主题色**：品牌色等色板统一定义在 `assets/main.css` 的 `:root` CSS 变量（`--mall-brand` 等），组件内用 `var()` 引用，不要硬编码色值。
+- **图标**：Element Plus 图标已在 `main.ts` 全局注册，模板里直接 `<el-icon><Xxx /></el-icon>`；字符串形式传 prop 时写 `:icon="'Xxx'"`。
+
 ## 7. Git 约定
 
 - 远程仓库：`git@github.com:ssmzl/my_mall.git`（main 分支）。
@@ -133,6 +143,7 @@ npm run build          # 生产构建
 - [x] 用户模块：`com.mall.user` —— 注册/登录/登出（BCrypt、JWT + Redis 会话 `mall:token:{token}`）、收货地址 CRUD（默认地址唯一由应用层事务保证、归属校验防越权）；接口前缀 `/api/user`、`/api/address`（详见 tasks.md Task 3）；UserServiceImplTest / AddressServiceImplTest 共 15 个单测
 - [x] 前端商城：`frontend/` —— 全部页面完成（登录/注册、首页、商品列表、搜索、详情、购物车、确认订单、我的订单/详情、收货地址、秒杀、后台管理 ×3）；axios 封装（Token/Result 解包/401 跳转）、user store、路由守卫（登录 + 管理员）；用户 store Vitest 6 个单测，`npm run build` / `npm run test:unit` 通过（详见 tasks.md Task 10）
   - **API 契约冻结**：商品/搜索/购物车/订单/秒杀/管理端的接口契约已在前端 `frontend/src/api/types.ts` + `src/api/*.ts` 定义（含秒杀 taskId 轮询、下单防重 Token、搜索高亮 `<em>` 标签等约定）。**Task 4-9 后端各模块实现时必须与该契约对齐**，如需调整契约须同步修改前端。
+- [x] 前端美化重构：抽出通用布局组件 `AppHeader.vue` / `AppFooter.vue`（sticky 导航、路由高亮、头像下拉、购物车角标经 defineExpose + App 转发刷新）与用户模块外壳 `AuthShell.vue`（登录/注册共用）；登录/注册/收货地址页美化；主题色收敛到 `main.css` CSS 变量；组件约定见第 6.1 节
 - [ ] 商品模块 + 缓存三防、ES 搜索、购物车、订单 + 延迟关单、秒杀、后台管理（详细拆解见 `.trae/specs/init-mall-project/tasks.md`；Task 11 全链路联调时验证前后端契约一致性）
 
 ## 9. 中间件使用要点

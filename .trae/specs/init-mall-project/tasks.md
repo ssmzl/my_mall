@@ -56,6 +56,7 @@
   - [x] SubTask 10.4: 秒杀活动页（倒计时、活动状态推算、抢购 + taskId 轮询结果 QUEUED/SUCCESS/FAIL）
   - [x] SubTask 10.5: 简易后台管理页（AdminLayout 侧边菜单；商品维护含两级分类/上下架/SKU 管理、订单管理含发货、秒杀活动管理含活动商品维护）
   - [x] SubTask 10.6: 用户 store Vitest 单测 6 个（登录/管理员/restore/登出/登出失败清理；`npm run test:unit` 全绿），`npm run build`（vue-tsc 类型检查 + vite 构建）通过
+  - [x] SubTask 10.7（美化重构）: 抽出通用组件 `components/layout/AppHeader.vue`（sticky 导航/路由高亮/头像下拉/购物车角标 defineExpose）、`AppFooter.vue`、`components/user/AuthShell.vue`（登录/注册共用外壳）；登录/注册/地址页美化；主题色收敛到 `main.css` `:root` CSS 变量；约定写入 AGENTS.md 第 6.1 节；单测/类型检查/构建全部通过
 
 - [ ] Task 11: 联调与交付
   - [ ] SubTask 11.1: 全链路联调：注册登录 → 搜索 → 加购 → 下单 → 支付 → 超时关单 → 秒杀
