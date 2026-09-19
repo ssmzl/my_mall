@@ -1,0 +1,13 @@
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Build
+backend/target/
+dist/
+node_modules/
+
+# Logs / temp
+*.log
+.DS_Store

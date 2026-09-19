@@ -1,0 +1,45 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # 宿主机 3306 被本机 MySQL 服务占用，Docker MySQL 映射在 3307
+    url: jdbc:mysql://localhost:3307/my_mall?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: root123
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 5s
+  # 仅装配客户端，启动时不做强连通校验，ES 不可达不影响应用启动
+  elasticsearch:
+    uris: http://localhost:9200
+
+# 仅配置 name-server，不配置 producer.group，rocketmq-spring 不会创建 Producer，避免启动时连接 RocketMQ（后续业务任务按需添加）
+rocketmq:
+  name-server: localhost:9876
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+      # 不使用逻辑删除
+  mapper-locations: classpath*:/mapper/**/*.xml
+
+mall:
+  jwt:
+    # 开发环境密钥，生产环境通过环境变量覆盖
+    secret: my-mall-dev-jwt-secret-key-0123456789abcdef
+    expire-minutes: 120
+  rocketmq:
+    # RocketMQ 5.x gRPC Proxy 地址。rocketmq-spring 2.3.x 无 rocketmq.proxy 配置项，
+    # 此处作为自定义属性预置，后续 MQ 业务任务据此构建 5.x 客户端
+    proxy-addr: localhost:8081

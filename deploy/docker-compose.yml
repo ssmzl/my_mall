@@ -1,0 +1,188 @@
+# my_mall 本地开发基础设施编排
+# 使用：docker compose -f deploy/docker-compose.yml up -d
+name: my-mall
+
+networks:
+  my-mall-net:
+    name: my-mall-net
+    driver: bridge
+
+volumes:
+  mysql-data:
+  redis-data:
+  rocketmq-namesrv-logs:
+  rocketmq-broker-logs:
+  rocketmq-broker-store:
+  rocketmq-proxy-logs:
+  es-data:
+  kibana-data:
+
+services:
+  # ---------------- MySQL 8.0 ----------------
+  mysql:
+    image: mysql:8.0
+    container_name: my-mall-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    # 宿主机 3306 已被本机 MySQL 服务占用，映射到 3307
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      # 首次启动自动执行 deploy/mysql/init 下的初始化 SQL
+      - ./mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot123"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    networks:
+      - my-mall-net
+
+  # ---------------- Redis 7 ----------------
+  redis:
+    image: redis:7
+    container_name: my-mall-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks:
+      - my-mall-net
+
+  # ---------------- RocketMQ 5.x：NameServer ----------------
+  rocketmq-nameserver:
+    image: apache/rocketmq:5.3.2
+    container_name: my-mall-rocketmq-nameserver
+    restart: unless-stopped
+    command: ["sh", "mqnamesrv"]
+    environment:
+      JAVA_OPT_EXT: "-Xms256m -Xmx512m"
+      TZ: Asia/Shanghai
+    ports:
+      - "9876:9876"
+    volumes:
+      - rocketmq-namesrv-logs:/home/rocketmq/logs
+    healthcheck:
+      test: ["CMD-SHELL", "sh mqadmin clusterList -n 127.0.0.1:9876 >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
+    networks:
+      - my-mall-net
+
+  # ---------------- RocketMQ 5.x：Broker ----------------
+  rocketmq-broker:
+    image: apache/rocketmq:5.3.2
+    container_name: my-mall-rocketmq-broker
+    restart: unless-stopped
+    depends_on:
+      rocketmq-nameserver:
+        condition: service_healthy
+    command: ["sh", "mqbroker", "-n", "rocketmq-nameserver:9876", "-c", "/home/rocketmq/conf/broker.conf"]
+    environment:
+      JAVA_OPT_EXT: "-Xms256m -Xmx512m"
+      TZ: Asia/Shanghai
+    ports:
+      - "10911:10911"
+      - "10909:10909"
+    volumes:
+      - ./rocketmq/broker.conf:/home/rocketmq/conf/broker.conf:ro
+      - rocketmq-broker-logs:/home/rocketmq/logs
+      - rocketmq-broker-store:/home/rocketmq/store
+    healthcheck:
+      test: ["CMD-SHELL", "sh mqadmin clusterList -n rocketmq-nameserver:9876 2>/dev/null | grep -q DefaultCluster || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 18
+      start_period: 30s
+    networks:
+      - my-mall-net
+
+  # ---------------- RocketMQ 5.x：Proxy（gRPC 8081） ----------------
+  rocketmq-proxy:
+    image: apache/rocketmq:5.3.2
+    container_name: my-mall-rocketmq-proxy
+    restart: unless-stopped
+    depends_on:
+      rocketmq-broker:
+        condition: service_healthy
+    command: ["sh", "mqproxy", "-n", "rocketmq-nameserver:9876"]
+    environment:
+      JAVA_OPT_EXT: "-Xms256m -Xmx512m"
+      TZ: Asia/Shanghai
+    ports:
+      - "8081:8081"
+    volumes:
+      - rocketmq-proxy-logs:/home/rocketmq/logs
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/8081' 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
+    networks:
+      - my-mall-net
+
+  # ---------------- Elasticsearch 8.15（单节点，关闭安全认证） ----------------
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+    container_name: my-mall-elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - TZ=Asia/Shanghai
+    ports:
+      - "9200:9200"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://127.0.0.1:9200/_cluster/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+    networks:
+      - my-mall-net
+
+  # ---------------- Kibana 8.15（可选，依赖 ES） ----------------
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.15.3
+    container_name: my-mall-kibana
+    restart: unless-stopped
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - I18N_LOCALE=zh-CN
+      - TZ=Asia/Shanghai
+    ports:
+      - "5601:5601"
+    volumes:
+      - kibana-data:/usr/share/kibana/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://127.0.0.1:5601/api/status >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
+    networks:
+      - my-mall-net
