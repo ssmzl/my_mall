@@ -1,7 +1,7 @@
 import http from './http'
 
 /** 响应拦截器已解包 data，这里做类型透传 */
-export function get<T>(url: string, params?: Record<string, unknown>): Promise<T> {
+export function get<T>(url: string, params?: object): Promise<T> {
   return http.get(url, { params }) as unknown as Promise<T>
 }
 

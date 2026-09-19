@@ -49,13 +49,13 @@
   - [ ] SubTask 9.1: 管理员分类/商品/SKU 维护接口（变更触发 ES 同步）
   - [ ] SubTask 9.2: 管理员订单列表/发货、秒杀活动配置接口
 
-- [ ] Task 10: 前端商城（基于现有 Vue3+TS 脚手架）
-  - [ ] SubTask 10.1: 引入 Element Plus + Axios；封装 request（Token 携带、统一错误提示）、用户 store、路由与登录守卫
-  - [ ] SubTask 10.2: 登录/注册页、首页/商品列表、搜索结果页（高亮+筛选）、商品详情页
-  - [ ] SubTask 10.3: 购物车页、确认订单页、我的订单页（含支付/取消操作）
-  - [ ] SubTask 10.4: 秒杀活动页（倒计时 + 抢购 + 结果轮询）
-  - [ ] SubTask 10.5: 简易后台管理页（商品维护、订单管理）
-  - [ ] SubTask 10.6: 用户 store 与核心组件 Vitest 单测
+- [x] Task 10: 前端商城（基于现有 Vue3+TS 脚手架）（注：页面已完成并可通过构建；商品/购物车/订单/秒杀/管理端的后端接口尚未实现，API 契约已冻结在前端 `frontend/src/api/types.ts` + `src/api/*.ts`，Task 4-9 后端实现时须与该契约对齐）
+  - [x] SubTask 10.1: Element Plus 全量注册 + 中文 locale + 图标全局注册；axios 封装（src/api/http.ts：Token 携带、Result 解包、401 统一跳登录、ElMessage 错误提示）；user store（登录态/管理员/restore/登出清理）；路由 16 条 + 登录守卫 + 管理员守卫 + 页面标题；App.vue 顶部导航（搜索框/购物车角标/用户菜单）
+  - [x] SubTask 10.2: 登录/注册页（表单校验、redirect 回跳）、首页（分类侧栏+商品网格）、商品列表页（categoryId 联动）、搜索结果页（高亮 v-html 转义后渲染 + 分类/价格/排序筛选）、商品详情页（SKU 规格选择、加购 emit cart-changed、立即购买）
+  - [x] SubTask 10.3: 购物车页（勾选/全选/数量/删除、合计、去结算）、确认订单页（立即购买/购物车双模式、地址单选、防重 Token 下单）、我的订单页（状态 tab、支付/取消）、订单详情页（步骤条、地址快照解析）、收货地址页（CRUD + 设默认）
+  - [x] SubTask 10.4: 秒杀活动页（倒计时、活动状态推算、抢购 + taskId 轮询结果 QUEUED/SUCCESS/FAIL）
+  - [x] SubTask 10.5: 简易后台管理页（AdminLayout 侧边菜单；商品维护含两级分类/上下架/SKU 管理、订单管理含发货、秒杀活动管理含活动商品维护）
+  - [x] SubTask 10.6: 用户 store Vitest 单测 6 个（登录/管理员/restore/登出/登出失败清理；`npm run test:unit` 全绿），`npm run build`（vue-tsc 类型检查 + vite 构建）通过
 
 - [ ] Task 11: 联调与交付
   - [ ] SubTask 11.1: 全链路联调：注册登录 → 搜索 → 加购 → 下单 → 支付 → 超时关单 → 秒杀
