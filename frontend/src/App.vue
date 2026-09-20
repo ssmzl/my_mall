@@ -8,7 +8,8 @@ const headerRef = ref<InstanceType<typeof AppHeader>>()
 </script>
 
 <template>
-  <el-container class="mall-container">
+  <!-- AppHeader/AppFooter 是自定义组件，el-container 无法自动识别为纵向布局，需显式指定 -->
+  <el-container direction="vertical" class="mall-container">
     <AppHeader ref="headerRef" />
 
     <el-main class="mall-main">

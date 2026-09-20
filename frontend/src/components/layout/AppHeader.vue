@@ -248,7 +248,10 @@ async function onLogout() {
 }
 
 .auth-link.register {
-  color: #e93b3d;
   font-weight: 600;
+}
+
+.auth-link.router-link-active {
+  color: #e93b3d;
 }
 </style>
