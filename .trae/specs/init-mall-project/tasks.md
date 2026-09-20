@@ -17,10 +17,10 @@
   - [x] SubTask 3.2: 收货地址 CRUD（GET /api/address/list、POST /api/address、PUT /api/address/{id}、DELETE /api/address/{id}、PUT /api/address/default/{id}）。默认地址唯一由应用层保证（事务内先清旧默认再设新默认）；首个地址自动设为默认；更新/删除/设默认均校验地址归属防越权
   - [x] SubTask 3.3: 用户模块单元测试（UserServiceImplTest 7 个 + AddressServiceImplTest 8 个，Mockito mock Mapper/Redis，覆盖 BCrypt、唯一校验、会话写入/删除、默认地址唯一、越权校验；`mvn test` 全绿 22/22）
 
-- [ ] Task 4: 商品模块 + 缓存三防
-  - [ ] SubTask 4.1: 分类树查询、商品分页列表接口
-  - [ ] SubTask 4.2: 商品详情接口：Redis 缓存 + 空值缓存防穿透 + Redisson 互斥锁防击穿 + 随机过期防雪崩
-  - [ ] SubTask 4.3: 商品缓存逻辑单元测试（mock RedisTemplate）
+- [x] Task 4: 商品模块 + 缓存三防
+  - [x] SubTask 4.1: 分类树查询、商品分页列表接口（GET /api/product/category/tree 两级树按 sort 升序；GET /api/product/page 仅上架商品，支持 categoryId 过滤 + keyword 模糊匹配名称/副标题，按销量降序；列表不加载 detail 大字段。注意：MyBatis-Plus 3.5.9+ 分页插件拆分到 mybatis-plus-jsqlparser 模块，pom 已补依赖并新增 MybatisPlusConfig 注册 PaginationInnerInterceptor）
+  - [x] SubTask 4.2: 商品详情接口：GET /api/product/{id}（含 SKU 列表）。Redis 缓存 key `mall:product:detail:{id}`（StringRedisTemplate + Jackson JSON）；空值缓存防穿透（不存在/已下架写 `__NULL__` 标记，TTL 2 分钟）；Redisson 互斥锁防击穿（tryLock 等待 3s/租期 10s，含双重检查，未抢到锁重读缓存、仍空查库兜底）；随机 TTL 防雪崩（1h + [0,30m)）；缓存 JSON 损坏时删除重建。已冒烟验证：Redis 写入正常、TTL 随机、空值缓存生效
+  - [x] SubTask 4.3: 商品缓存逻辑单元测试（ProductServiceImplTest 11 个：缓存命中不查库、空值缓存命中拒绝、未命中加锁重建+随机 TTL 校验、查无商品/已下架写空值缓存、双重检查、未抢到锁重读/查库兜底、锁中断恢复中断标记、分类树、分页映射；mock StringRedisTemplate/RedissonClient；单测内 TableInfoHelper.initTableInfo 初始化 PmsProduct 元数据以支持 select(Class, Predicate)）；`mvn test` 全绿 33/33
 
 - [ ] Task 5: ES 商品搜索
   - [ ] SubTask 5.1: 定义 ES 商品索引（IK 分词器），提供索引初始化脚本/说明
