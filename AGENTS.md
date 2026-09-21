@@ -144,7 +144,7 @@ npm run build          # 生产构建
 - [x] 前端商城：`frontend/` —— 全部页面完成（登录/注册、首页、商品列表、搜索、详情、购物车、确认订单、我的订单/详情、收货地址、秒杀、后台管理 ×3）；axios 封装（Token/Result 解包/401 跳转）、user store、路由守卫（登录 + 管理员）；用户 store Vitest 6 个单测，`npm run build` / `npm run test:unit` 通过（详见 tasks.md Task 10）
   - **API 契约冻结**：商品/搜索/购物车/订单/秒杀/管理端的接口契约已在前端 `frontend/src/api/types.ts` + `src/api/*.ts` 定义（含秒杀 taskId 轮询、下单防重 Token、搜索高亮 `<em>` 标签等约定）。**Task 4-9 后端各模块实现时必须与该契约对齐**，如需调整契约须同步修改前端。
 - [x] 前端美化重构：抽出通用布局组件 `AppHeader.vue` / `AppFooter.vue`（sticky 导航、路由高亮、头像下拉、购物车角标经 defineExpose + App 转发刷新）与用户模块外壳 `AuthShell.vue`（登录/注册共用）；登录/注册/收货地址页美化；主题色收敛到 `main.css` CSS 变量；组件约定见第 6.1 节
-- [x] 商品模块：`com.mall.product` —— 分类树（GET /api/product/category/tree）、商品分页（GET /api/product/page，仅上架 + keyword 模糊搜索 + 分类过滤，不加载 detail 大字段）、商品详情（GET /api/product/{id} 含 SKU，缓存三防：空值缓存防穿透 / Redisson 互斥锁防击穿 / 随机 TTL 防雪崩，缓存 key `mall:product:detail:{id}`）；新增 MybatisPlusConfig 分页插件（MyBatis-Plus 3.5.9+ 需单独引入 `mybatis-plus-jsqlparser`）；ProductServiceImplTest 11 个单测，`mvn test` 全绿 33/33（详见 tasks.md Task 4）
+- [x] 商品模块：`com.mall.product` —— 分类树（GET /api/product/category/tree）、商品分页（GET /api/product/page，仅上架 + keyword 模糊搜索 + 分类过滤，不加载 detail 大字段；categoryId 会先展开为「自身 + 全部后代分类 ID」再 IN 查询，选一级分类可命中其下所有二级分类商品）、商品详情（GET /api/product/{id} 含 SKU，缓存三防：空值缓存防穿透 / Redisson 互斥锁防击穿 / 随机 TTL 防雪崩，缓存 key `mall:product:detail:{id}`）；新增 MybatisPlusConfig 分页插件（MyBatis-Plus 3.5.9+ 需单独引入 `mybatis-plus-jsqlparser`）；ProductServiceImplTest 13 个单测，`mvn test` 全绿 35/35（详见 tasks.md Task 4）
 - [ ] ES 搜索、购物车、订单 + 延迟关单、秒杀、后台管理（详细拆解见 `.trae/specs/init-mall-project/tasks.md`；Task 11 全链路联调时验证前后端契约一致性）
 
 ## 9. 中间件使用要点

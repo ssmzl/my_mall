@@ -1,6 +1,7 @@
 package com.mall.product.service;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mall.common.BizException;
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.redisson.api.RLock;
@@ -73,14 +75,19 @@ class ProductServiceImplTest {
     @Mock
     private RLock lock;
 
+    @Captor
+    private ArgumentCaptor<Wrapper<PmsProduct>> wrapperCaptor;
+
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     private ProductServiceImpl productService;
 
     @BeforeEach
     void setUp() {
-        // 初始化 PmsProduct 的 MyBatis-Plus 元数据：page() 的 select(Class, Predicate) 依赖 TableInfo
-        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), PmsProduct.class);
+        // 初始化 MyBatis-Plus 元数据：page() 的 select(Class, Predicate) 与分类展开的 lambda 条件依赖 TableInfo
+        MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
+        TableInfoHelper.initTableInfo(assistant, PmsProduct.class);
+        TableInfoHelper.initTableInfo(assistant, PmsCategory.class);
         productService = new ProductServiceImpl(
                 categoryMapper, productMapper, skuMapper, stringRedisTemplate, redissonClient, objectMapper);
         // opsForValue 在部分测试（如分类树）中不会被调用，用 lenient 避免 UnnecessaryStubbing
@@ -277,6 +284,42 @@ class ProductServiceImplTest {
         assertThat(result.getRecords()).hasSize(1);
         assertThat(result.getCurrent()).isEqualTo(1);
         assertThat(result.getSize()).isEqualTo(10);
+        // 未选分类：不查分类表、条件为精确匹配而非 IN
+        verify(categoryMapper, never()).selectList(any());
+        assertThat(capturePageSqlSegment()).doesNotContain("IN");
+    }
+
+    @Test
+    void pageShouldExpandRootCategoryToDescendantIds() {
+        // 一级分类 1 下有二级分类 11、12：按 1 查询应展开为 [1, 11, 12] 的 IN 查询
+        when(categoryMapper.selectList(any()))
+                .thenReturn(List.of(buildCategory(11L, 1L, "手机", 2), buildCategory(12L, 1L, "电脑", 2)))
+                .thenReturn(List.of());
+        when(productMapper.selectPage(any(), any())).thenReturn(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 10));
+
+        productService.page(1, 10, 1L, null);
+
+        verify(productMapper).selectPage(any(), wrapperCaptor.capture());
+        String sqlSegment = wrapperCaptor.getValue().getSqlSegment();
+        assertThat(sqlSegment).contains("IN");
+    }
+
+    @Test
+    void pageShouldKeepExactMatchForLeafCategory() {
+        // 叶子分类（无子分类）：仅包含自身 ID，仍走 IN（单元素）条件
+        when(categoryMapper.selectList(any())).thenReturn(List.of());
+        when(productMapper.selectPage(any(), any())).thenReturn(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 10));
+
+        productService.page(1, 10, 11L, null);
+
+        verify(productMapper).selectPage(any(), wrapperCaptor.capture());
+        assertThat(wrapperCaptor.getValue().getSqlSegment()).contains("IN");
+    }
+
+    /** 捕获最近一次分页查询的 SQL 片段 */
+    private String capturePageSqlSegment() {
+        verify(productMapper).selectPage(any(), wrapperCaptor.capture());
+        return wrapperCaptor.getValue().getSqlSegment();
     }
 
     // ---------------- 测试数据构造 ----------------

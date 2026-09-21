@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
@@ -88,9 +89,11 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public PageResult<PmsProduct> page(long pageNum, long pageSize, Long categoryId, String keyword) {
+        // 选中一级分类时需覆盖其全部子孙分类下的商品：将分类展开为「自身 + 后代」ID 集合后 IN 查询
+        List<Long> categoryIds = categoryId != null ? expandCategoryIds(categoryId) : null;
         LambdaQueryWrapper<PmsProduct> wrapper = new LambdaQueryWrapper<PmsProduct>()
                 .eq(PmsProduct::getStatus, STATUS_ON)
-                .eq(categoryId != null, PmsProduct::getCategoryId, categoryId)
+                .in(categoryIds != null, PmsProduct::getCategoryId, categoryIds)
                 // keyword 模糊匹配名称或副标题
                 .and(StringUtils.hasText(keyword),
                         w -> w.like(PmsProduct::getName, keyword).or().like(PmsProduct::getSubTitle, keyword))
@@ -100,6 +103,31 @@ public class ProductServiceImpl implements ProductService {
                 .orderByDesc(PmsProduct::getId);
         IPage<PmsProduct> result = productMapper.selectPage(new Page<>(pageNum, pageSize), wrapper);
         return PageResult.of(result);
+    }
+
+    /**
+     * 将分类展开为「自身 + 全部后代分类」的 ID 集合（BFS 逐层向下查询）。
+     *
+     * <p>商品挂在叶子（二级）分类上，前端从首页点击一级分类进入列表时，
+     * 若只按该分类精确匹配会查不到任何商品，故需展开为子树 ID 集合。
+     */
+    private List<Long> expandCategoryIds(Long categoryId) {
+        List<Long> ids = new ArrayList<>();
+        ids.add(categoryId);
+        List<Long> parentIds = List.of(categoryId);
+        while (!parentIds.isEmpty()) {
+            List<PmsCategory> children = categoryMapper.selectList(new LambdaQueryWrapper<PmsCategory>()
+                    .select(PmsCategory::getId)
+                    .eq(PmsCategory::getStatus, STATUS_ON)
+                    .in(PmsCategory::getParentId, parentIds));
+            if (children.isEmpty()) {
+                break;
+            }
+            List<Long> childIds = children.stream().map(PmsCategory::getId).toList();
+            ids.addAll(childIds);
+            parentIds = childIds;
+        }
+        return ids;
     }
 
     @Override

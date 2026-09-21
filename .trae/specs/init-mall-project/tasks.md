@@ -20,7 +20,8 @@
 - [x] Task 4: 商品模块 + 缓存三防
   - [x] SubTask 4.1: 分类树查询、商品分页列表接口（GET /api/product/category/tree 两级树按 sort 升序；GET /api/product/page 仅上架商品，支持 categoryId 过滤 + keyword 模糊匹配名称/副标题，按销量降序；列表不加载 detail 大字段。注意：MyBatis-Plus 3.5.9+ 分页插件拆分到 mybatis-plus-jsqlparser 模块，pom 已补依赖并新增 MybatisPlusConfig 注册 PaginationInnerInterceptor）
   - [x] SubTask 4.2: 商品详情接口：GET /api/product/{id}（含 SKU 列表）。Redis 缓存 key `mall:product:detail:{id}`（StringRedisTemplate + Jackson JSON）；空值缓存防穿透（不存在/已下架写 `__NULL__` 标记，TTL 2 分钟）；Redisson 互斥锁防击穿（tryLock 等待 3s/租期 10s，含双重检查，未抢到锁重读缓存、仍空查库兜底）；随机 TTL 防雪崩（1h + [0,30m)）；缓存 JSON 损坏时删除重建。已冒烟验证：Redis 写入正常、TTL 随机、空值缓存生效
-  - [x] SubTask 4.3: 商品缓存逻辑单元测试（ProductServiceImplTest 11 个：缓存命中不查库、空值缓存命中拒绝、未命中加锁重建+随机 TTL 校验、查无商品/已下架写空值缓存、双重检查、未抢到锁重读/查库兜底、锁中断恢复中断标记、分类树、分页映射；mock StringRedisTemplate/RedissonClient；单测内 TableInfoHelper.initTableInfo 初始化 PmsProduct 元数据以支持 select(Class, Predicate)）；`mvn test` 全绿 33/33
+  - [x] SubTask 4.3: 商品缓存逻辑单元测试（ProductServiceImplTest 13 个：缓存命中不查库、空值缓存命中拒绝、未命中加锁重建+随机 TTL 校验、查无商品/已下架写空值缓存、双重检查、未抢到锁重读/查库兜底、锁中断恢复中断标记、分类树、分页映射、分类展开；mock StringRedisTemplate/RedissonClient；单测内 TableInfoHelper.initTableInfo 初始化 PmsProduct/PmsCategory 元数据以支持 lambda 条件）；`mvn test` 全绿 35/35
+  - [x] Bugfix: 商品分页按一级分类查询返回空 —— categoryId 由精确 eq 改为先展开为「自身 + 全部后代分类 ID」（BFS 逐层查子分类）再 IN 查询（expandCategoryIds），商品挂在二级分类下时选一级分类也能命中全部商品
 
 - [ ] Task 5: ES 商品搜索
   - [ ] SubTask 5.1: 定义 ES 商品索引（IK 分词器），提供索引初始化脚本/说明
