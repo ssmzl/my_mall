@@ -29,9 +29,9 @@
   - [ ] SubTask 5.3: 搜索接口：关键词高亮 + 分类/价格筛选 + 销量/价格/综合排序 + 分页
   - [ ] SubTask 5.4: 搜索同步与查询集成测试（连接 docker ES）
 
-- [ ] Task 6: 购物车（Redis）
-  - [ ] SubTask 6.1: 购物车增删改查、勾选/全选、合计金额（Redis Hash 存储）
-  - [ ] SubTask 6.2: 购物车单元测试
+- [x] Task 6: 购物车（Redis）
+  - [x] SubTask 6.1: 购物车增删改查、勾选/全选、合计金额（Redis Hash 存储）。接口前缀 /api/cart：GET /cart、POST /cart（加购，已在购物车则累加数量）、PUT /cart/quantity、PUT /cart/selected、PUT /cart/selectedAll、DELETE /cart/{skuId}（幂等），均需登录。存储结构 key `mall:cart:{userId}`、field=skuId、value=条目快照 JSON（固化商品名/规格/主图/加购时单价/数量/勾选/加购时间，展示不反查商品库）；加购校验 SKU 存在 + 商品上架 + 库存充足（已有数量+新增 ≤ stock，改数量同理）；skuSpec 由 specJson 解析为值 " / " 拼接（与前端详情页约定一致），无规格/损坏回退 skuCode；查询按 addTime 升序，聚合 totalCount（quantity 之和，供角标）/selectedCount/selectedAmount；条目 JSON 损坏时记录诊断日志、删除脏数据按不存在处理（购物车无 TTL，脏数据不会自愈）
+  - [x] SubTask 6.2: 购物车单元测试（CartServiceImplTest 15 个：新增快照固化商品信息与默认勾选、已加购累加数量保留勾选/加购时间、超库存/规格不存在/商品下架拒绝且不写入、改数量/勾选变更、全选 putAll、幂等删除、聚合合计与 addTime 排序、空购物车、脏数据跳过并删除；mock StringRedisTemplate 的 HashOperations 与 SkuMapper/ProductMapper）；`mvn test` 全绿 50/50
 
 - [ ] Task 7: 订单模块 + RocketMQ 延迟关单
   - [ ] SubTask 7.1: 下单接口：防重 Token（Redis 一次性令牌）、事务内校验并扣减库存、生成订单/订单项、清购物车已购项、发送延迟关单消息
