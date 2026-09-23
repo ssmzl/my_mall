@@ -32,4 +32,10 @@ public interface ProductService {
      * 供商品列表与 ES 搜索的分类过滤复用。
      */
     List<Long> expandCategoryIds(Long categoryId);
+
+    /**
+     * 查询全量商品（含下架，按 id 升序），供 ES 存量全量同步 / 索引重建使用。
+     * 仅返回索引所需字段，不含 detail 大字段。
+     */
+    List<PmsProduct> listAllForIndex();
 }

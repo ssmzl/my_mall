@@ -132,6 +132,16 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    public List<PmsProduct> listAllForIndex() {
+        // 仅选取索引所需字段，排除 detail 大字段，降低全量同步时的内存与传输开销
+        return productMapper.selectList(new LambdaQueryWrapper<PmsProduct>()
+                .select(PmsProduct::getId, PmsProduct::getCategoryId, PmsProduct::getName,
+                        PmsProduct::getSubTitle, PmsProduct::getMainPic, PmsProduct::getPrice,
+                        PmsProduct::getSales, PmsProduct::getStatus)
+                .orderByAsc(PmsProduct::getId));
+    }
+
+    @Override
     public ProductDetailVO getDetail(Long id) {
         String cacheKey = CACHE_KEY_PREFIX + id;
         ProductDetailVO cached = readCache(cacheKey);

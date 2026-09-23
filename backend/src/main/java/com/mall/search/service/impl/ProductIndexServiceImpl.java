@@ -2,16 +2,20 @@ package com.mall.search.service.impl;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
+import co.elastic.clients.elasticsearch.core.BulkResponse;
 import co.elastic.clients.elasticsearch.core.IndexResponse;
+import co.elastic.clients.elasticsearch.core.bulk.BulkResponseItem;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.mall.product.entity.PmsProduct;
+import com.mall.product.service.ProductService;
 import com.mall.search.entity.EsProduct;
 import com.mall.search.service.ProductIndexService;
 
 import java.io.IOException;
+import java.util.List;
 
 /**
  * ES 商品索引维护实现（基于 ElasticsearchClient DSL）。
@@ -33,12 +37,18 @@ public class ProductIndexServiceImpl implements ProductIndexService {
     private static final String FALLBACK_ANALYZER = "standard";
     private static final String ALREADY_EXISTS = "resource_already_exists_exception";
 
+    /** bulk 单批文档数上限，避免单次请求过大 */
+    private static final int BULK_BATCH_SIZE = 500;
+
     private final ElasticsearchClient elasticsearchClient;
+    private final ProductService productService;
     private final String indexName;
 
     public ProductIndexServiceImpl(ElasticsearchClient elasticsearchClient,
+                                   ProductService productService,
                                    @Value("${mall.search.product-index:mall_product}") String indexName) {
         this.elasticsearchClient = elasticsearchClient;
+        this.productService = productService;
         this.indexName = indexName;
     }
 
@@ -133,6 +143,54 @@ public class ProductIndexServiceImpl implements ProductIndexService {
             log.error("商品索引删除失败: index={}, productId={}", indexName, productId, e);
             throw new IllegalStateException("商品索引删除失败: productId=" + productId, e);
         }
+    }
+
+    @Override
+    public int syncAllProducts() {
+        // 索引不存在则先建（含 IK 探测降级），保证空库首次同步也能成功
+        ensureIndex();
+        List<PmsProduct> products = productService.listAllForIndex();
+        if (products.isEmpty()) {
+            log.info("存量商品全量同步完成: index={}, 共 0 条", indexName);
+            return 0;
+        }
+        int success = 0;
+        for (int from = 0; from < products.size(); from += BULK_BATCH_SIZE) {
+            List<PmsProduct> batch = products.subList(from, Math.min(from + BULK_BATCH_SIZE, products.size()));
+            success += bulkIndex(batch);
+        }
+        log.info("存量商品全量同步完成: index={}, 总数={}, 成功={}", indexName, products.size(), success);
+        return success;
+    }
+
+    /** 单批 bulk 写入（upsert），任一条目失败即抛异常并打印失败明细，由调用方决定重试 */
+    private int bulkIndex(List<PmsProduct> batch) {
+        BulkResponse response;
+        try {
+            response = elasticsearchClient.bulk(b -> {
+                for (PmsProduct product : batch) {
+                    EsProduct doc = toDoc(product);
+                    b.operations(op -> op.index(idx -> idx
+                            .index(indexName)
+                            .id(String.valueOf(doc.getId()))
+                            .document(doc)));
+                }
+                return b;
+            });
+        } catch (IOException e) {
+            log.error("存量商品 bulk 写入失败: index={}, batchSize={}", indexName, batch.size(), e);
+            throw new IllegalStateException("存量商品 bulk 写入失败: index=" + indexName, e);
+        }
+        if (response.errors()) {
+            List<BulkResponseItem> failed = response.items().stream()
+                    .filter(item -> item.error() != null)
+                    .toList();
+            failed.forEach(item -> log.error("bulk 条目失败: index={}, id={}, error={}",
+                    item.index(), item.id(), item.error().reason()));
+            throw new IllegalStateException("存量商品同步存在失败条目: index=" + indexName
+                    + ", 失败数=" + failed.size());
+        }
+        return batch.size();
     }
 
     private EsProduct toDoc(PmsProduct product) {

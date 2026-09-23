@@ -21,4 +21,12 @@ public interface ProductIndexService {
 
     /** 删除文档，索引中不存在时静默成功 */
     void removeProduct(Long productId);
+
+    /**
+     * 存量商品全量同步 / 索引重建：查库全量商品（含下架）分批 bulk 写入 ES（upsert 幂等）。
+     *
+     * @return 成功写入的文档数
+     * @throws IllegalStateException ES 写入失败或存在失败条目时抛出
+     */
+    int syncAllProducts();
 }
