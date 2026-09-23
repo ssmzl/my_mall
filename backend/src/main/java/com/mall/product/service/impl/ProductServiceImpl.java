@@ -111,7 +111,8 @@ public class ProductServiceImpl implements ProductService {
      * <p>商品挂在叶子（二级）分类上，前端从首页点击一级分类进入列表时，
      * 若只按该分类精确匹配会查不到任何商品，故需展开为子树 ID 集合。
      */
-    private List<Long> expandCategoryIds(Long categoryId) {
+    @Override
+    public List<Long> expandCategoryIds(Long categoryId) {
         List<Long> ids = new ArrayList<>();
         ids.add(categoryId);
         List<Long> parentIds = List.of(categoryId);

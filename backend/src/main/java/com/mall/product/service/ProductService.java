@@ -25,4 +25,11 @@ public interface ProductService {
      * @throws com.mall.common.BizException 商品不存在或已下架
      */
     ProductDetailVO getDetail(Long id);
+
+    /**
+     * 将分类展开为「自身 + 全部后代分类」ID 集合（BFS）。
+     * 商品挂在二级分类下，一级/二级分类过滤均可用该方法统一展开。
+     * 供商品列表与 ES 搜索的分类过滤复用。
+     */
+    List<Long> expandCategoryIds(Long categoryId);
 }

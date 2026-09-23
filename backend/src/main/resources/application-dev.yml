@@ -19,9 +19,13 @@ spring:
   elasticsearch:
     uris: http://localhost:9200
 
-# 仅配置 name-server，不配置 producer.group，rocketmq-spring 不会创建 Producer，避免启动时连接 RocketMQ（后续业务任务按需添加）
+# name-server + producer.group 齐备后 rocketmq-spring 会创建 Producer/Consumer；
+# 本地 Broker 已开启 autoCreateTopicEnable，Topic 首次发送/订阅时自动创建
 rocketmq:
   name-server: localhost:9876
+  producer:
+    group: mall-producer
+    send-message-timeout: 5000
 
 mybatis-plus:
   configuration:
@@ -39,6 +43,11 @@ mall:
     # 开发环境密钥，生产环境通过环境变量覆盖
     secret: my-mall-dev-jwt-secret-key-0123456789abcdef
     expire-minutes: 120
+  search:
+    # ES 商品索引与同步 Topic（集成测试用 *_it 后缀隔离）
+    product-index: mall_product
+    sync-topic: mall-product-sync
+    sync-consumer-group: mall-search-sync-consumer
   rocketmq:
     # RocketMQ 5.x gRPC Proxy 地址。rocketmq-spring 2.3.x 无 rocketmq.proxy 配置项，
     # 此处作为自定义属性预置，后续 MQ 业务任务据此构建 5.x 客户端

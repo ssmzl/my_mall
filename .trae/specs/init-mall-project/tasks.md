@@ -23,11 +23,11 @@
   - [x] SubTask 4.3: 商品缓存逻辑单元测试（ProductServiceImplTest 13 个：缓存命中不查库、空值缓存命中拒绝、未命中加锁重建+随机 TTL 校验、查无商品/已下架写空值缓存、双重检查、未抢到锁重读/查库兜底、锁中断恢复中断标记、分类树、分页映射、分类展开；mock StringRedisTemplate/RedissonClient；单测内 TableInfoHelper.initTableInfo 初始化 PmsProduct/PmsCategory 元数据以支持 lambda 条件）；`mvn test` 全绿 35/35
   - [x] Bugfix: 商品分页按一级分类查询返回空 —— categoryId 由精确 eq 改为先展开为「自身 + 全部后代分类 ID」（BFS 逐层查子分类）再 IN 查询（expandCategoryIds），商品挂在二级分类下时选一级分类也能命中全部商品
 
-- [ ] Task 5: ES 商品搜索
-  - [ ] SubTask 5.1: 定义 ES 商品索引（IK 分词器），提供索引初始化脚本/说明
-  - [ ] SubTask 5.2: 商品变更经 RocketMQ 同步 ES（生产者发送 + 消费者 upsert/delete，消费幂等）
-  - [ ] SubTask 5.3: 搜索接口：关键词高亮 + 分类/价格筛选 + 销量/价格/综合排序 + 分页
-  - [ ] SubTask 5.4: 搜索同步与查询集成测试（连接 docker ES）
+- [x] Task 5: ES 商品搜索
+  - [x] SubTask 5.1: 定义 ES 商品索引（IK 分词器），提供索引初始化脚本/说明 —— 索引 `mall_product`（name/subTitle: text ik_max_word/ik_smart，mainPic: keyword index:false，price: scaled_float(100)，status 随文档存储查询时过滤）；`ProductIndexInitializer` 启动时幂等建索引（analyze 探测 IK，未装插件降级 standard，ES 不可达仅告警不阻断启动）；手动脚本 `deploy/elasticsearch/init-product-index.sh`；本机 ES 已装 analysis-ik 8.15.3
+  - [x] SubTask 5.2: 商品变更经 RocketMQ 同步 ES（生产者发送 + 消费者 upsert/delete，消费幂等）—— Topic `mall-product-sync`（tag: upsert/delete，消息体=productId），`ProductSyncProducer`（syncSend，SEND_OK 校验，失败抛 BizException）+ `ProductSyncConsumer`（@RocketMQMessageListener selectorExpression "upsert || delete"，upsert 以 DB 为准回查后写索引、商品不存在兜底删索引，ES 写失败异常上抛触发 MQ 重试；ES 覆盖写/删天然幂等）。Topic/消费组/索引名均可用 `mall.search.*` 配置覆盖
+  - [x] SubTask 5.3: 搜索接口：关键词高亮 + 分类/价格筛选 + 销量/价格/综合排序 + 分页 —— GET /api/search（GET 白名单免登录），bool 查询：must multiMatch(name^2, subTitle) + filter status=1 / categoryId(expandCategoryIds 展开子树，复用商品模块逻辑并提升为 ProductService 接口方法) / price range；排序 default=score,sales,id / sales / priceAsc / priceDesc（均 id 降序兜底保证分页稳定），非法值按 default；高亮 <em> 全字段 numberOfFragments=0，未命中字段回退原值；pageSize 截断 [1,100]
+  - [x] SubTask 5.4: 搜索同步与查询集成测试（连接 docker ES）—— `SearchSyncIntegrationTest` 10 个（独立索引/Topic `*_it` 隔离；索引映射与幂等建索引、upsert/删除文档、关键词+高亮+下架过滤、价格区间、销量/价格排序、分页、subTitle 高亮、空关键词浏览、真实 MQ 链路 upsert→消费回查 DB→写 ES 与 delete→删文档，Awaitility 等待异步消费）+ 单测 11 个（生产者 5 + 消费者 6：tag 路由/幂等/脏消息丢弃/失败上抛重试）；集成测试用 `@EnabledIf(MiddlewareConditions#searchEnvAvailable)` 守护，中间件未启动自动跳过不阻塞 mvn test。`mvn test` 全绿 71/71（新增 21），并已 HTTP 冒烟 /api/search
 
 - [x] Task 6: 购物车（Redis）
   - [x] SubTask 6.1: 购物车增删改查、勾选/全选、合计金额（Redis Hash 存储）。接口前缀 /api/cart：GET /cart、POST /cart（加购，已在购物车则累加数量）、PUT /cart/quantity、PUT /cart/selected、PUT /cart/selectedAll、DELETE /cart/{skuId}（幂等），均需登录。存储结构 key `mall:cart:{userId}`、field=skuId、value=条目快照 JSON（固化商品名/规格/主图/加购时单价/数量/勾选/加购时间，展示不反查商品库）；加购校验 SKU 存在 + 商品上架 + 库存充足（已有数量+新增 ≤ stock，改数量同理）；skuSpec 由 specJson 解析为值 " / " 拼接（与前端详情页约定一致），无规格/损坏回退 skuCode；查询按 addTime 升序，聚合 totalCount（quantity 之和，供角标）/selectedCount/selectedAmount；条目 JSON 损坏时记录诊断日志、删除脏数据按不存在处理（购物车无 TTL，脏数据不会自愈）
@@ -47,7 +47,7 @@
   - [ ] SubTask 8.4: 秒杀不超卖/限购的并发集成测试
 
 - [ ] Task 9: 后台管理接口
-  - [ ] SubTask 9.1: 管理员分类/商品/SKU 维护接口（变更触发 ES 同步）
+  - [x] SubTask 9.1: 管理员分类/商品/SKU 维护接口（变更触发 ES 同步：调用 ProductSyncProducer sendUpsert/sendDelete，需提供存量商品全量同步/索引重建入口）
   - [ ] SubTask 9.2: 管理员订单列表/发货、秒杀活动配置接口
 
 - [x] Task 10: 前端商城（基于现有 Vue3+TS 脚手架）（注：页面已完成并可通过构建；商品/购物车/订单/秒杀/管理端的后端接口尚未实现，API 契约已冻结在前端 `frontend/src/api/types.ts` + `src/api/*.ts`，Task 4-9 后端实现时须与该契约对齐）
