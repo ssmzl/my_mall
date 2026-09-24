@@ -52,3 +52,11 @@ mall:
     # RocketMQ 5.x gRPC Proxy 地址。rocketmq-spring 2.3.x 无 rocketmq.proxy 配置项，
     # 此处作为自定义属性预置，后续 MQ 业务任务据此构建 5.x 客户端
     proxy-addr: localhost:8081
+  order:
+    close-topic: mall-order-close
+    close-consumer-group: mall-order-close-consumer
+    # RocketMQ 延迟消息级别：1=1s 2=5s 3=10s 4=30s 5=1m ... 14=10m 16=30m 17=1h 18=2h
+    # 默认 30s 便于联调演示超时关单，生产环境建议改为 16（30分钟）
+    close-delay-level: 4
+    # 下单防重 Token 有效期（分钟）
+    token-ttl-minutes: 10

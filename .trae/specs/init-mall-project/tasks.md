@@ -34,12 +34,12 @@
   - [x] SubTask 6.1: 购物车增删改查、勾选/全选、合计金额（Redis Hash 存储）。接口前缀 /api/cart：GET /cart、POST /cart（加购，已在购物车则累加数量）、PUT /cart/quantity、PUT /cart/selected、PUT /cart/selectedAll、DELETE /cart/{skuId}（幂等），均需登录。存储结构 key `mall:cart:{userId}`、field=skuId、value=条目快照 JSON（固化商品名/规格/主图/加购时单价/数量/勾选/加购时间，展示不反查商品库）；加购校验 SKU 存在 + 商品上架 + 库存充足（已有数量+新增 ≤ stock，改数量同理）；skuSpec 由 specJson 解析为值 " / " 拼接（与前端详情页约定一致），无规格/损坏回退 skuCode；查询按 addTime 升序，聚合 totalCount（quantity 之和，供角标）/selectedCount/selectedAmount；条目 JSON 损坏时记录诊断日志、删除脏数据按不存在处理（购物车无 TTL，脏数据不会自愈）
   - [x] SubTask 6.2: 购物车单元测试（CartServiceImplTest 15 个：新增快照固化商品信息与默认勾选、已加购累加数量保留勾选/加购时间、超库存/规格不存在/商品下架拒绝且不写入、改数量/勾选变更、全选 putAll、幂等删除、聚合合计与 addTime 排序、空购物车、脏数据跳过并删除；mock StringRedisTemplate 的 HashOperations 与 SkuMapper/ProductMapper）；`mvn test` 全绿 50/50
 
-- [ ] Task 7: 订单模块 + RocketMQ 延迟关单
-  - [ ] SubTask 7.1: 下单接口：防重 Token（Redis 一次性令牌）、事务内校验并扣减库存、生成订单/订单项、清购物车已购项、发送延迟关单消息
-  - [ ] SubTask 7.2: 模拟支付回调（更新订单状态，幂等）
-  - [ ] SubTask 7.3: 主动取消 + 超时关单消费者（回补库存、消费幂等）
-  - [ ] SubTask 7.4: 订单分页列表/详情接口
-  - [ ] SubTask 7.5: 下单事务、超时关单、幂等性的单元/集成测试
+- [x] Task 7: 订单模块 + RocketMQ 延迟关单
+  - [x] SubTask 7.1: 下单接口：防重 Token（Redis 一次性令牌）、事务内校验并扣减库存、生成订单/订单项、清购物车已购项、发送延迟关单消息 —— GET /api/order/token（UUID 令牌写 `mall:order:token:{token}`=userId，TTL 10min 可配 `mall.order.token-ttl-minutes`）；POST /api/order（@Transactional）：Token 原子消费（GET 校验绑定用户 + DELETE 返回值判定，重放拒绝）→ 地址归属校验 → 同 SKU 条目合并（防拆单绕过库存）→ `SkuMapper#deductStock` 条件扣减（UPDATE ... WHERE stock >= qty，DB 行锁防超卖，影响 0 行即库存不足）→ 生成订单（orderNo=时间戳+6位随机，唯一索引兜底；addressSnapshot 为 6 字段收货信息 JSON，与前端 OrderDetailView 契约一致）与订单项（固化商品名/规格" / "拼接/单价快照）→ 事务提交后 afterCommit 发送延迟关单消息 + 逐个清购物车已购项（事务回滚不发送不清理）
+  - [x] SubTask 7.2: 模拟支付回调 POST /api/order/pay/{orderNo}（幂等）—— 条件更新仅 0待支付→1已支付（写 payTime），影响 0 行时按当前状态分流：已支付幂等返回成功（不再累加销量）、其他状态抛「不可支付」；支付成功后按订单项累加 pms_product.sales
+  - [x] SubTask 7.3: 主动取消 PUT /api/order/cancel/{orderNo} + 超时关单消费者（回补库存、消费幂等）—— 共用 `tryCancel`：条件更新仅 0待支付→4已取消，成功才回补 SKU 库存（restockStock），保证支付与关单并发时只有一方生效、库存只回补一次；主动取消：越权按订单不存在处理、已取消幂等、已支付抛「不可取消」；消费者 `OrderCloseConsumer`（RocketMQListener，Topic `mall-order-close` / 消费组 `mall-order-close-consumer` 可配）：订单不存在（下单事务回滚残留消息）仅告警确认消费；非待支付状态静默跳过；生产者 `OrderCloseProducer` 下单 afterCommit 发送，消息发送失败仅告警不阻断已提交订单；延迟级别可配 `mall.order.close-delay-level`（默认 4=30s 便于演示，生产建议 16=30m）
+  - [x] SubTask 7.4: 订单分页列表/详情接口 —— GET /api/order/page（仅本人订单，status 状态 tab + orderNo 模糊，createTime/id 降序，pageSize 截断 [1,50]，批量查订单项按 orderId 分组组装）；GET /api/order/{orderNo}（归属校验防越权，他人订单按不存在处理）；返回 OrderVO（含 items，addressSnapshot 为原始 JSON 字符串由前端解析）
+  - [x] SubTask 7.5: 单元测试 —— OrderServiceImplTest 24 个（Token 写入绑定用户与 TTL、Token 缺失/绑定他人/重放删除失败拒绝、成功下单扣库存+订单/订单项快照断言、同 SKU 合并扣减、afterCommit 触发发送延迟消息+清购物车与事务未提交不触发、库存不足/商品下架/地址越权拒绝且不落单、支付成功累加销量、重复支付幂等不加销量、已取消不可支付、取消回补库存、已取消幂等不重复回补、已支付不可取消、越权取消拒绝、关单关单回补/订单不存在跳过/已支付跳过、分页组装、详情越权拒绝；TableInfoHelper 初始化 OmsOrder/OmsOrderItem，TransactionSynchronizationManager.initSynchronization 支持 afterCommit 验证）；`mvn test` 全绿 99/99（新增 24）。已 HTTP 冒烟：下单→防重重放拒绝→详情→支付→重复支付幂等→已支付取消拒绝→分页→加购下单清购物车→30s 超时关单 status=4→SKU8 库存 500-2(支付)=498 ✓
 
 - [ ] Task 8: 秒杀模块
   - [ ] SubTask 8.1: 秒杀活动/商品管理与活动商品预热（库存加载到 Redis）
