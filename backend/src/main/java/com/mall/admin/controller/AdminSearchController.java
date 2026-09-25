@@ -1,4 +1,4 @@
-package com.mall.search.controller;
+package com.mall.admin.controller;
 
 import com.mall.common.Result;
 import com.mall.search.service.ProductIndexService;
@@ -11,8 +11,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 管理端搜索运维接口（/admin/** 由登录拦截器要求管理员角色）。
+ *
+ * <p>接口归属 admin 模块（后台管理统一入口），依赖 search 模块的
+ * {@link ProductIndexService} 执行索引写入，与其他管理端控制器一致。
  */
-@Tag(name = "搜索-管理端", description = "ES 商品索引运维")
+@Tag(name = "管理端-搜索运维", description = "ES 商品索引运维")
 @RestController
 @RequestMapping("/admin/search")
 @RequiredArgsConstructor
