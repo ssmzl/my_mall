@@ -59,11 +59,11 @@ export function adminAddSku(productId: number, data: { skuCode: string; specJson
 }
 
 export function adminUpdateSku(id: number, data: Partial<Sku>): Promise<void> {
-  return put<void>(`/admin/sku/${id}`, data)
+  return put<void>(`/admin/product/sku/${id}`, data)
 }
 
 export function adminDeleteSku(id: number): Promise<void> {
-  return del<void>(`/admin/sku/${id}`)
+  return del<void>(`/admin/product/sku/${id}`)
 }
 
 /* ---------- 订单管理 ---------- */
