@@ -65,21 +65,21 @@ public class AdminProductController {
         return Result.ok(null);
     }
 
-    @Operation(summary = "新增SKU", description = "商品必须存在")
+    @Operation(summary = "新增SKU", description = "商品必须存在；变更后重算 SKU 最低价为商品展示价并触发 ES 同步、清详情缓存")
     @PostMapping("/{productId}/sku")
     public Result<Void> addSku(@PathVariable Long productId, @Valid @RequestBody AdminSkuAddDTO dto) {
         adminProductService.addSku(productId, dto);
         return Result.ok(null);
     }
 
-    @Operation(summary = "修改SKU", description = "仅更新非空字段")
+    @Operation(summary = "修改SKU", description = "仅更新非空字段；变更后重算 SKU 最低价为商品展示价并触发 ES 同步、清详情缓存")
     @PutMapping("/sku/{id}")
     public Result<Void> updateSku(@PathVariable Long id, @RequestBody AdminSkuUpdateDTO dto) {
         adminProductService.updateSku(id, dto);
         return Result.ok(null);
     }
 
-    @Operation(summary = "删除SKU")
+    @Operation(summary = "删除SKU", description = "删除后重算 SKU 最低价为商品展示价（无 SKU 保持原价）并触发 ES 同步、清详情缓存")
     @DeleteMapping("/sku/{id}")
     public Result<Void> deleteSku(@PathVariable Long id) {
         adminProductService.deleteSku(id);

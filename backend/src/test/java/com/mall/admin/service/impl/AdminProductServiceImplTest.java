@@ -22,19 +22,23 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * 管理端商品/SKU 维护单元测试：二级分类校验、ES upsert 同步触发、SKU 维护。
+ * 管理端商品/SKU 维护单元测试：二级分类校验、ES upsert 同步触发、SKU 维护、
+ * SKU 变更后展示价（SKU 最低价）回写与详情缓存失效。
  */
 @ExtendWith(MockitoExtension.class)
 class AdminProductServiceImplTest {
@@ -55,6 +59,9 @@ class AdminProductServiceImplTest {
     @Mock
     private ProductSyncProducer productSyncProducer;
 
+    @Mock
+    private StringRedisTemplate stringRedisTemplate;
+
     private AdminProductServiceImpl service;
 
     @BeforeEach
@@ -62,7 +69,8 @@ class AdminProductServiceImplTest {
         MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
         TableInfoHelper.initTableInfo(assistant, PmsProduct.class);
         TableInfoHelper.initTableInfo(assistant, PmsSku.class);
-        service = new AdminProductServiceImpl(productMapper, skuMapper, categoryMapper, productSyncProducer);
+        service = new AdminProductServiceImpl(productMapper, skuMapper, categoryMapper,
+                productSyncProducer, stringRedisTemplate);
         // 模拟自增主键回填，便于验证同步消息携带商品ID（非所有用例都会 insert，用 lenient）
         lenient().doAnswer(inv -> {
             PmsProduct p = inv.getArgument(0);
@@ -122,6 +130,7 @@ class AdminProductServiceImplTest {
         assertThat(captor.getValue().getName()).isEqualTo("新名称");
         assertThat(captor.getValue().getPrice()).isEqualByComparingTo("199.00");
         verify(productSyncProducer).sendUpsert(PRODUCT_ID);
+        verify(stringRedisTemplate).delete(anyString());
     }
 
     @Test
@@ -146,6 +155,7 @@ class AdminProductServiceImplTest {
         verify(productMapper).updateById(captor.capture());
         assertThat(captor.getValue().getStatus()).isZero();
         verify(productSyncProducer).sendUpsert(PRODUCT_ID);
+        verify(stringRedisTemplate).delete(anyString());
     }
 
     @Test
@@ -162,6 +172,7 @@ class AdminProductServiceImplTest {
     @Test
     void addSkuShouldBindProductId() {
         when(productMapper.selectById(PRODUCT_ID)).thenReturn(product());
+        when(skuMapper.selectList(any())).thenReturn(List.of(sku()));
         AdminSkuAddDTO dto = new AdminSkuAddDTO();
         dto.setSkuCode("SKU-001");
         dto.setPrice(new BigDecimal("99.90"));
@@ -172,6 +183,9 @@ class AdminProductServiceImplTest {
         ArgumentCaptor<PmsSku> captor = ArgumentCaptor.forClass(PmsSku.class);
         verify(skuMapper).insert(captor.capture());
         assertThat(captor.getValue().getProductId()).isEqualTo(PRODUCT_ID);
+        // SKU 变更后同步 ES 并清详情缓存
+        verify(productSyncProducer).sendUpsert(PRODUCT_ID);
+        verify(stringRedisTemplate).delete(anyString());
     }
 
     @Test
@@ -186,6 +200,7 @@ class AdminProductServiceImplTest {
     @Test
     void updateSkuShouldPatchNonNullFields() {
         when(skuMapper.selectById(5L)).thenReturn(sku());
+        when(skuMapper.selectList(any())).thenReturn(List.of(sku()));
         AdminSkuUpdateDTO dto = new AdminSkuUpdateDTO();
         dto.setStock(66);
 
@@ -196,11 +211,47 @@ class AdminProductServiceImplTest {
         assertThat(captor.getValue().getStock()).isEqualTo(66);
         // 其他字段保持原值
         assertThat(captor.getValue().getSkuCode()).isEqualTo("SKU-OLD");
+        verify(productSyncProducer).sendUpsert(PRODUCT_ID);
+        verify(stringRedisTemplate).delete(anyString());
+    }
+
+    @Test
+    void updateSkuShouldWriteBackMinPriceAsDisplayPrice() {
+        when(skuMapper.selectById(5L)).thenReturn(sku());
+        // 商品当前展示价 99.90，两个 SKU 最低价 59.50 → 回写展示价并同步 ES
+        when(skuMapper.selectList(any())).thenReturn(List.of(sku(), skuWithPrice("79.00"), skuWithPrice("59.50")));
+        when(productMapper.selectById(PRODUCT_ID)).thenReturn(product());
+        AdminSkuUpdateDTO dto = new AdminSkuUpdateDTO();
+        dto.setPrice(new BigDecimal("59.50"));
+
+        service.updateSku(5L, dto);
+
+        ArgumentCaptor<PmsProduct> captor = ArgumentCaptor.forClass(PmsProduct.class);
+        verify(productMapper).updateById(captor.capture());
+        assertThat(captor.getValue().getId()).isEqualTo(PRODUCT_ID);
+        assertThat(captor.getValue().getPrice()).isEqualByComparingTo("59.50");
+        verify(productSyncProducer).sendUpsert(PRODUCT_ID);
+        verify(stringRedisTemplate).delete(anyString());
+    }
+
+    @Test
+    void deleteSkuShouldSyncWithoutPriceWriteBackWhenNoSkuLeft() {
+        when(skuMapper.selectById(5L)).thenReturn(sku());
+        // 删除后无 SKU：不改展示价，但仍触发 ES 同步与缓存失效
+        when(skuMapper.selectList(any())).thenReturn(List.of());
+
+        service.deleteSku(5L);
+
+        verify(skuMapper).deleteById(5L);
+        verify(productMapper, never()).updateById(any(PmsProduct.class));
+        verify(productSyncProducer).sendUpsert(PRODUCT_ID);
+        verify(stringRedisTemplate).delete(anyString());
     }
 
     @Test
     void deleteSkuShouldSucceedAndRejectWhenNotExists() {
         when(skuMapper.selectById(5L)).thenReturn(sku());
+        when(skuMapper.selectList(any())).thenReturn(List.of(sku()));
         service.deleteSku(5L);
         verify(skuMapper).deleteById(5L);
 
@@ -250,6 +301,16 @@ class AdminProductServiceImplTest {
         s.setProductId(PRODUCT_ID);
         s.setSkuCode("SKU-OLD");
         s.setPrice(new BigDecimal("99.90"));
+        s.setStock(10);
+        return s;
+    }
+
+    private static PmsSku skuWithPrice(String price) {
+        PmsSku s = new PmsSku();
+        s.setId(6L);
+        s.setProductId(PRODUCT_ID);
+        s.setSkuCode("SKU-P");
+        s.setPrice(new BigDecimal(price));
         s.setStock(10);
         return s;
     }

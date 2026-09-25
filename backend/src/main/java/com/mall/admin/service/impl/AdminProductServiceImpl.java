@@ -18,18 +18,29 @@ import com.mall.product.mapper.CategoryMapper;
 import com.mall.product.mapper.ProductMapper;
 import com.mall.product.mapper.SkuMapper;
 import com.mall.search.mq.ProductSyncProducer;
+import com.mall.product.service.impl.ProductServiceImpl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Objects;
 
 /**
  * 管理端商品/SKU 维护实现。
  *
  * <p>ES 同步策略：商品新增/修改/上下架后发送 upsert 消息（消费端以 DB 为准回查写 ES），
- * 在事务内发送，发送失败抛异常回滚本次变更，保证 DB 与 ES 最终一致；
- * SKU 字段不在 ES 文档中，SKU 增删改无需触发同步。
+ * 在事务内发送，发送失败抛异常回滚本次变更，保证 DB 与 ES 最终一致。
+ *
+ * <p>展示价同步策略：ES 文档不含 SKU 字段，搜索展示价取商品表 price，
+ * 因此 SKU 增删改后重算该商品 SKU 最低价回写商品展示价，再触发 ES upsert，
+ * 使搜索/列表展示价与 SKU 价格一致（约定：有 SKU 时展示价 = SKU 最低价，无 SKU 保持原价）。
+ *
+ * <p>缓存一致性：商品/SKU 变更后删除商品详情缓存 mall:product:detail:{id}，避免详情页读到旧数据。
  */
 @Slf4j
 @Service
@@ -43,6 +54,7 @@ public class AdminProductServiceImpl implements AdminProductService {
     private final SkuMapper skuMapper;
     private final CategoryMapper categoryMapper;
     private final ProductSyncProducer productSyncProducer;
+    private final StringRedisTemplate stringRedisTemplate;
 
     @Override
     public PageResult<PmsProduct> page(long pageNum, long pageSize, String keyword, Integer status) {
@@ -105,6 +117,7 @@ public class AdminProductServiceImpl implements AdminProductService {
         }
         productMapper.updateById(product);
         productSyncProducer.sendUpsert(id);
+        stringRedisTemplate.delete(ProductServiceImpl.CACHE_KEY_PREFIX + id);
         log.info("管理端修改商品成功: id={}", id);
     }
 
@@ -121,10 +134,12 @@ public class AdminProductServiceImpl implements AdminProductService {
         product.setStatus(status);
         productMapper.updateById(product);
         productSyncProducer.sendUpsert(id);
+        stringRedisTemplate.delete(ProductServiceImpl.CACHE_KEY_PREFIX + id);
         log.info("管理端商品上下架成功: id={}, status={}", id, status);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void addSku(Long productId, AdminSkuAddDTO dto) {
         requireProduct(productId);
         PmsSku sku = new PmsSku();
@@ -134,10 +149,12 @@ public class AdminProductServiceImpl implements AdminProductService {
         sku.setPrice(dto.getPrice());
         sku.setStock(dto.getStock());
         skuMapper.insert(sku);
+        refreshDisplayPriceAndSync(productId);
         log.info("管理端新增SKU成功: id={}, productId={}, skuCode={}", sku.getId(), productId, sku.getSkuCode());
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateSku(Long id, AdminSkuUpdateDTO dto) {
         PmsSku sku = requireSku(id);
         if (StringUtils.hasText(dto.getSkuCode())) {
@@ -153,17 +170,47 @@ public class AdminProductServiceImpl implements AdminProductService {
             sku.setStock(dto.getStock());
         }
         skuMapper.updateById(sku);
+        refreshDisplayPriceAndSync(sku.getProductId());
         log.info("管理端修改SKU成功: id={}", id);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void deleteSku(Long id) {
-        requireSku(id);
+        PmsSku sku = requireSku(id);
         skuMapper.deleteById(id);
+        refreshDisplayPriceAndSync(sku.getProductId());
         log.info("管理端删除SKU成功: id={}", id);
     }
 
     // ---------------- 内部方法 ----------------
+
+    /**
+     * SKU 变更后重算商品展示价并同步：展示价 = SKU 最低价（无 SKU 保持原价），
+     * 随后发送 ES upsert（事务内，失败抛异常整体回滚）并删除商品详情缓存。
+     */
+    private void refreshDisplayPriceAndSync(Long productId) {
+        List<PmsSku> skus = skuMapper.selectList(new LambdaQueryWrapper<PmsSku>()
+                .eq(PmsSku::getProductId, productId)
+                .select(PmsSku::getPrice));
+        if (!skus.isEmpty()) {
+            BigDecimal minPrice = skus.stream()
+                    .map(PmsSku::getPrice)
+                    .filter(Objects::nonNull)
+                    .min(BigDecimal::compareTo)
+                    .orElse(null);
+            PmsProduct product = productMapper.selectById(productId);
+            if (minPrice != null && product != null && minPrice.compareTo(product.getPrice()) != 0) {
+                PmsProduct update = new PmsProduct();
+                update.setId(productId);
+                update.setPrice(minPrice);
+                productMapper.updateById(update);
+                log.info("SKU 变更触发展示价回写: productId={}, newPrice={}", productId, minPrice);
+            }
+        }
+        productSyncProducer.sendUpsert(productId);
+        stringRedisTemplate.delete(ProductServiceImpl.CACHE_KEY_PREFIX + productId);
+    }
 
     /** 商品必须挂在二级分类下（表结构与种子数据约定） */
     private void requireSecondLevelCategory(Long categoryId) {
