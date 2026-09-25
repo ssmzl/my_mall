@@ -15,6 +15,9 @@ public interface SeckillService {
     /** 秒杀活动列表（含活动商品，实时剩余库存） */
     List<SeckillActivityVO> listActivities();
 
+    /** 管理端全量活动列表（含下线/已结束活动，含活动商品），供后台配置页展示与编辑 */
+    List<SeckillActivityVO> listAllActivities();
+
     /**
      * 秒杀下单（异步）：简单限流 → Lua 原子预扣库存 + 限购校验 → 写入 QUEUED 任务 → 投递 MQ。
      *

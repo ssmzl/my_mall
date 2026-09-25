@@ -6,6 +6,7 @@ import type {
   PageData,
   PageQuery,
   Product,
+  SeckillActivity,
   Sku,
 } from './types'
 
@@ -84,6 +85,11 @@ export interface AdminSeckillActivityPayload {
   startTime: string
   endTime: string
   status?: number
+}
+
+/** 管理端全量活动列表（含下线/已结束活动；C 端 /seckill/activities 只返回上线中活动，不能用于管理页） */
+export function adminSeckillActivityList(): Promise<SeckillActivity[]> {
+  return get<SeckillActivity[]>('/admin/seckill/activity/list')
 }
 
 export function adminAddSeckillActivity(data: AdminSeckillActivityPayload): Promise<void> {

@@ -134,6 +134,20 @@ public class SeckillServiceImpl implements SeckillService {
                 .gt(SmsSeckillActivity::getEndTime, now)
                 .orderByAsc(SmsSeckillActivity::getStartTime)
                 .orderByAsc(SmsSeckillActivity::getId));
+        return assembleActivityVOs(activities);
+    }
+
+    @Override
+    public List<SeckillActivityVO> listAllActivities() {
+        // 管理端：不过滤状态与时间，含下线/已结束活动（新增活动默认下线，必须可见才能上线配置）
+        List<SmsSeckillActivity> activities = activityMapper.selectList(new LambdaQueryWrapper<SmsSeckillActivity>()
+                .orderByAsc(SmsSeckillActivity::getStartTime)
+                .orderByAsc(SmsSeckillActivity::getId));
+        return assembleActivityVOs(activities);
+    }
+
+    /** 活动 + 活动商品 + 商品信息批量装配（C 端与管理端共用） */
+    private List<SeckillActivityVO> assembleActivityVOs(List<SmsSeckillActivity> activities) {
         if (activities.isEmpty()) {
             return List.of();
         }

@@ -7,9 +7,9 @@ import {
   adminAddSeckillActivity,
   adminAddSeckillProduct,
   adminDeleteSeckillProduct,
+  adminSeckillActivityList,
   adminUpdateSeckillActivity,
 } from '@/api/admin'
-import { seckillActivities } from '@/api/seckill'
 import type { SeckillActivity, SeckillProduct } from '@/api/types'
 
 type Phase = 'before' | 'ongoing' | 'ended'
@@ -37,7 +37,8 @@ function formatTime(t: string): string {
 async function refresh() {
   loading.value = true
   try {
-    activities.value = await seckillActivities()
+    // 用管理端全量列表：C 端接口只返回上线中活动，新增（默认下线）的活动会查不到
+    activities.value = await adminSeckillActivityList()
   } catch {
     /* 失败提示由拦截器统一处理 */
   } finally {

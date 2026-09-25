@@ -248,6 +248,8 @@ async function submitSku() {
     }
     resetSkuForm()
     await loadSkus(product.id)
+    // SKU 变更会回写商品展示价/库存，主列表需同步刷新，否则价格列仍显示旧值
+    await fetchPage()
   } finally {
     skuSubmitting.value = false
   }
@@ -264,6 +266,7 @@ async function onDeleteSku(sku: Sku) {
   if (currentProduct.value) {
     await loadSkus(currentProduct.value.id)
   }
+  await fetchPage()
 }
 
 onMounted(() => {

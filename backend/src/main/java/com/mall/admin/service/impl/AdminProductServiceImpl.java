@@ -24,6 +24,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
@@ -117,7 +119,7 @@ public class AdminProductServiceImpl implements AdminProductService {
         }
         productMapper.updateById(product);
         productSyncProducer.sendUpsert(id);
-        stringRedisTemplate.delete(ProductServiceImpl.CACHE_KEY_PREFIX + id);
+        evictDetailCacheAfterCommit(id);
         log.info("管理端修改商品成功: id={}", id);
     }
 
@@ -134,7 +136,7 @@ public class AdminProductServiceImpl implements AdminProductService {
         product.setStatus(status);
         productMapper.updateById(product);
         productSyncProducer.sendUpsert(id);
-        stringRedisTemplate.delete(ProductServiceImpl.CACHE_KEY_PREFIX + id);
+        evictDetailCacheAfterCommit(id);
         log.info("管理端商品上下架成功: id={}, status={}", id, status);
     }
 
@@ -209,7 +211,27 @@ public class AdminProductServiceImpl implements AdminProductService {
             }
         }
         productSyncProducer.sendUpsert(productId);
-        stringRedisTemplate.delete(ProductServiceImpl.CACHE_KEY_PREFIX + productId);
+        evictDetailCacheAfterCommit(productId);
+    }
+
+    /**
+     * 事务提交后再删除商品详情缓存 mall:product:detail:{id}。
+     *
+     * <p>若在提交前删除：「删缓存 → 提交」窗口内并发的详情请求会未命中缓存、
+     * 从 DB 读到未提交前的旧数据并回写缓存，导致缓存长期为脏数据；
+     * 提交后删除则重建时必然读到新数据。无事务上下文时（如单测）直接删除。
+     */
+    private void evictDetailCacheAfterCommit(Long productId) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            stringRedisTemplate.delete(ProductServiceImpl.CACHE_KEY_PREFIX + productId);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                stringRedisTemplate.delete(ProductServiceImpl.CACHE_KEY_PREFIX + productId);
+            }
+        });
     }
 
     /** 商品必须挂在二级分类下（表结构与种子数据约定） */
