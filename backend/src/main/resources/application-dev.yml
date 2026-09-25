@@ -60,3 +60,11 @@ mall:
     close-delay-level: 4
     # 下单防重 Token 有效期（分钟）
     token-ttl-minutes: 10
+  seckill:
+    # 秒杀下单 Topic 与消费组（集成测试用 *_it 后缀隔离）
+    order-topic: mall-seckill-order
+    order-consumer-group: mall-seckill-order-consumer
+    # 每用户每秒最大抢购请求数（简单固定窗口限流）
+    rate-limit-per-second: 3
+    # 秒杀下单任务 Redis TTL（分钟），超时未出结果按失败处理
+    task-ttl-minutes: 30

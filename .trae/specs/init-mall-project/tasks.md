@@ -41,11 +41,11 @@
   - [x] SubTask 7.4: 订单分页列表/详情接口 —— GET /api/order/page（仅本人订单，status 状态 tab + orderNo 模糊，createTime/id 降序，pageSize 截断 [1,50]，批量查订单项按 orderId 分组组装）；GET /api/order/{orderNo}（归属校验防越权，他人订单按不存在处理）；返回 OrderVO（含 items，addressSnapshot 为原始 JSON 字符串由前端解析）
   - [x] SubTask 7.5: 单元测试 —— OrderServiceImplTest 24 个（Token 写入绑定用户与 TTL、Token 缺失/绑定他人/重放删除失败拒绝、成功下单扣库存+订单/订单项快照断言、同 SKU 合并扣减、afterCommit 触发发送延迟消息+清购物车与事务未提交不触发、库存不足/商品下架/地址越权拒绝且不落单、支付成功累加销量、重复支付幂等不加销量、已取消不可支付、取消回补库存、已取消幂等不重复回补、已支付不可取消、越权取消拒绝、关单关单回补/订单不存在跳过/已支付跳过、分页组装、详情越权拒绝；TableInfoHelper 初始化 OmsOrder/OmsOrderItem，TransactionSynchronizationManager.initSynchronization 支持 afterCommit 验证）；`mvn test` 全绿 99/99（新增 24）。已 HTTP 冒烟：下单→防重重放拒绝→详情→支付→重复支付幂等→已支付取消拒绝→分页→加购下单清购物车→30s 超时关单 status=4→SKU8 库存 500-2(支付)=498 ✓
 
-- [ ] Task 8: 秒杀模块
-  - [ ] SubTask 8.1: 秒杀活动/商品管理与活动商品预热（库存加载到 Redis）
-  - [ ] SubTask 8.2: 秒杀下单：Lua 脚本原子预扣 + 单用户限购校验，成功投递 MQ
-  - [ ] SubTask 8.3: 秒杀订单消费者异步建单 + 下单结果查询接口（前端轮询）+ 简单限流
-  - [ ] SubTask 8.4: 秒杀不超卖/限购的并发集成测试
+- [x] Task 8: 秒杀模块
+  - [x] SubTask 8.1: 秒杀活动/商品管理与活动商品预热（库存加载到 Redis）—— 实体/Mapper（SmsSeckillActivity/SmsSeckillProduct + 条件扣减/回补 `deductSeckillStock`/`restockSeckillStock`）；活动列表 GET /api/seckill/activities（GET 白名单免登录，仅上线未结束活动，商品联查 pms_product 取名称/主图/原价，剩余库存优先读 Redis `mall:seckill:stock:{spId}`、key 缺失回退 DB）；预热 `SeckillWarmUpRunner`（ApplicationRunner 启动时把「上线且未结束」活动的秒杀库存 SET 到 Redis，以 DB 为基准整体覆盖，失败仅告警不阻断启动）
+  - [x] SubTask 8.2: 秒杀下单：Lua 脚本原子预扣 + 单用户限购校验，成功投递 MQ —— POST /api/seckill/{seckillProductId}（需登录）：简单限流（固定窗口 1s 计数，`mall.seckill.rate-limit-per-second` 默认 3）→ 校验秒杀商品/活动进行中/商品上架 → Lua 脚本（`SeckillLua`，KEYS=库存key+已购key，ARGV=限购数+TTL）原子执行「限购校验+库存预扣+已购+1」，返回 1成功/-1售罄/-2超限购/-3未预热；已购计数 key `mall:seckill:purchased:{spId}:{userId}` TTL=活动结束+1h；成功写 QUEUED 任务（`mall:seckill:task:{taskId}`，TTL 30min 可配）并投递 MQ（Topic `mall-seckill-order` 可配，消息体 JSON{taskId,userId,seckillProductId}）；MQ 发送失败回滚 Redis 预扣（库存+1、已购-1）并删任务、抛异常拒绝本次抢购
+  - [x] SubTask 8.3: 秒杀订单消费者异步建单 + 下单结果查询接口（前端轮询）+ 简单限流 —— `SeckillOrderConsumer`（消费组 `mall-seckill-order-consumer` 可配）：任务非 QUEUED（重复投递/已处理）跳过保证消费幂等、任务不存在（残留消息）告警确认；建单 @Transactional：DB 条件扣减秒杀库存（最终防线，0 行=售罄 → FAIL+归还 Redis）→ 生成订单（秒杀价快照、收货地址取用户默认地址可空）+ 订单项（spec 解析复用规则）→ afterCommit 发送延迟关单消息（复用 OrderCloseProducer，秒杀单同样 30s 未支付自动关单）→ 任务置 SUCCESS 回写 orderNo；系统异常由消费者兜底 failTask（任务置 FAIL + 归还 Redis 预扣，不重试防重复建单）；结果查询 GET /api/seckill/result?taskId=（需登录，校验任务归属防越权探测，不存在/过期/他人任务统一返回 FAIL）
+  - [x] SubTask 8.4: 秒杀不超卖/限购的并发集成测试 —— `SeckillIntegrationTest` 3 个（真实 MySQL/Redis/RocketMQ，独立 ID 段 990xxx + `*_it` Topic/消费组隔离，`MiddlewareConditions#seckillEnvAvailable` 守护中间件未启动自动跳过）：20 用户并发抢 5 件库存恰好 5 成功 15 失败且 Redis 预扣归零/DB 库存未动（不超卖）、单用户 10 并发仅 1 次成功（限购）、真实 MQ 消费后所有成功任务变 SUCCESS 且订单数与成功数一致、DB 秒杀库存扣减至 0（最终防线）；`SeckillServiceImplTest` 18 个单测（活动列表 Redis 优先/DB 回退、Lua 各返回码分流、限流拒绝、MQ 失败回滚、结果查询越权/过期、建单成功/DB 售罄归还/幂等跳过/failTask 归还）。`mvn test` 全绿 120/120（新增 21）。已 HTTP 冒烟：活动列表含实时库存 → 登录抢购返回 taskId → 轮询 SUCCESS 返回订单号 → 订单页可见秒杀价订单（含默认地址快照与订单项）→ 重复抢购被限购拒绝 → Redis 库存 10→9 → 未登录 POST 返回 401
 
 - [ ] Task 9: 后台管理接口
   - [x] SubTask 9.1: 管理员分类/商品/SKU 维护接口（变更触发 ES 同步：调用 ProductSyncProducer sendUpsert/sendDelete，需提供存量商品全量同步/索引重建入口）

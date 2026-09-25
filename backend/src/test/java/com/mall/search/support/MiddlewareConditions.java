@@ -14,6 +14,11 @@ public class MiddlewareConditions {
         return reachable("localhost", 9200) && reachable("localhost", 9876);
     }
 
+    /** 秒杀集成测试环境：MySQL / Redis / RocketMQ 均可达 */
+    public static boolean seckillEnvAvailable() {
+        return reachable("localhost", 3307) && reachable("localhost", 6379) && reachable("localhost", 9876);
+    }
+
     private static boolean reachable(String host, int port) {
         try (Socket socket = new Socket()) {
             socket.connect(new InetSocketAddress(host, port), 1000);

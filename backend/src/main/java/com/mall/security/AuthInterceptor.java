@@ -54,7 +54,7 @@ public class AuthInterceptor implements HandlerInterceptor {
     private static final List<String> WHITE_LIST_GET = List.of(
             "/product/**",
             "/search/**",
-            "/seckill/activity"
+            "/seckill/activities"
     );
 
     private static final String ADMIN_PATH_PATTERN = "/admin/**";
