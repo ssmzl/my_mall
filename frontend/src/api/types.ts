@@ -58,13 +58,14 @@ export interface AddressPayload {
 
 /* ==================== 商品模块 ==================== */
 
-/** 分类（树形） */
+/** 分类（树形；status: 0 禁用 1 启用，管理端树接口含禁用分类） */
 export interface Category {
   id: number
   parentId: number
   name: string
   level: number
   sort: number
+  status: number
   children?: Category[]
 }
 

@@ -21,7 +21,8 @@ const router = createRouter({
     { path: '/address', name: 'address', component: () => import('@/views/AddressView.vue'), meta: { title: '收货地址', requiresAuth: true } },
     // ---------- 后台管理（需管理员） ----------
     { path: '/admin', name: 'admin', component: () => import('@/views/admin/AdminLayout.vue'), meta: { title: '后台管理', requiresAuth: true, requiresAdmin: true }, children: [
-      { path: '', redirect: { name: 'admin-products' } },
+      { path: '', redirect: { name: 'admin-categories' } },
+      { path: 'categories', name: 'admin-categories', component: () => import('@/views/admin/AdminCategoryView.vue'), meta: { title: '分类管理', requiresAuth: true, requiresAdmin: true } },
       { path: 'products', name: 'admin-products', component: () => import('@/views/admin/AdminProductView.vue'), meta: { title: '商品管理', requiresAuth: true, requiresAdmin: true } },
       { path: 'orders', name: 'admin-orders', component: () => import('@/views/admin/AdminOrderView.vue'), meta: { title: '订单管理', requiresAuth: true, requiresAdmin: true } },
       { path: 'seckill', name: 'admin-seckill', component: () => import('@/views/admin/AdminSeckillView.vue'), meta: { title: '秒杀管理', requiresAuth: true, requiresAdmin: true } },

@@ -9,6 +9,10 @@ const route = useRoute()
     <el-aside width="220px" class="admin-aside">
       <div class="admin-logo">my_mall 后台管理</div>
       <el-menu router :default-active="route.path" class="admin-menu">
+        <el-menu-item index="/admin/categories">
+          <el-icon><Menu /></el-icon>
+          <span>分类管理</span>
+        </el-menu-item>
         <el-menu-item index="/admin/products">
           <el-icon><Goods /></el-icon>
           <span>商品管理</span>

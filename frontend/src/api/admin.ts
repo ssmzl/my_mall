@@ -16,7 +16,7 @@ export function adminAddCategory(data: { parentId: number; name: string; sort?: 
   return post<void>('/admin/category', data)
 }
 
-export function adminUpdateCategory(id: number, data: { name: string; sort?: number; status?: number }): Promise<void> {
+export function adminUpdateCategory(id: number, data: { name?: string; sort?: number; status?: number }): Promise<void> {
   return put<void>(`/admin/category/${id}`, data)
 }
 
