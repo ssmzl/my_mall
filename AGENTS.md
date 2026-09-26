@@ -76,13 +76,13 @@ my_mall/
         ├── common/          # Result<T>/PageResult、BizException、全局异常处理、HealthController
         ├── config/          # MyBatis-Plus / Knife4j / Web（跨域）等配置
         ├── security/        # JwtUtils、AuthInterceptor（登录/管理员校验）、LoginUser 上下文
-        ├── user/            # 用户、地址（ums_*）—— 待开发
-        ├── product/         # 分类、商品、SKU（pms_*）—— 待开发
-        ├── search/          # ES 商品搜索 —— 待开发
-        ├── cart/            # 购物车（Redis）—— 待开发
-        ├── order/           # 订单（oms_*）—— 待开发
-        ├── seckill/         # 秒杀（sms_*）—— 待开发
-        └── admin/           # 后台管理接口 —— 待开发
+        ├── user/            # 用户、地址（ums_*）—— 已开发
+        ├── product/         # 分类、商品、SKU（pms_*）—— 已开发
+        ├── search/          # ES 商品搜索 —— 已开发
+        ├── cart/            # 购物车（Redis）—— 已开发
+        ├── order/           # 订单（oms_*）—— 已开发
+        ├── seckill/         # 秒杀（sms_*）—— 已开发
+        └── admin/           # 后台管理接口 —— 已开发
 ```
 
 每个业务包内部分层：`controller` / `service`（接口 + `service/impl` 实现）/ `mapper` / `entity` / `dto`。
@@ -142,7 +142,12 @@ my_mall/
 - [x] 订单模块：`com.mall.order` —— 下单防重 Token（`mall:order:token:{token}` 绑定用户一次性消费，TTL 10min）、事务内 SKU 条件扣减库存防超卖（`UPDATE ... WHERE stock >= qty`，同 SKU 条目先合并）、订单/订单项快照（orderNo=时间戳+6位随机；addressSnapshot 为 6 字段收货信息 JSON 与前端契约一致）、事务提交后 afterCommit 发送延迟关单消息（Topic `mall-order-close`，延迟级别 `mall.order.close-delay-level` 默认 4=30s 便于演示、生产建议 16=30m）+ 清购物车已购项；模拟支付（条件更新 0→1 幂等，成功累加商品销量）、主动取消/超时关单共用条件更新 0→4（并发只回补一次库存）、订单分页/详情（归属校验防越权）；接口前缀 /api/order 与前端 order.ts 契约一致；OrderServiceImplTest 24 个单测，`mvn test` 全绿 99/99；已全链路 HTTP 冒烟（含 30s 延迟关单与库存回补验证，详见 tasks.md Task 7）
 - [x] 秒杀模块：`com.mall.seckill` —— 活动列表 GET /api/seckill/activities（免登录，剩余库存优先读 Redis `mall:seckill:stock:{spId}` 回退 DB）、启动预热 `SeckillWarmUpRunner`（上线未结束活动的秒杀库存加载到 Redis）、秒杀下单 POST /api/seckill/{spId}（简单限流固定窗口 1s 默认 3 次 + Lua 脚本原子「限购校验+库存预扣+已购计数」`SeckillLua`，MQ 发送失败自动回滚预扣）、消费者异步建单（Topic `mall-seckill-order`，DB 条件扣减兜底防超卖、任务状态幂等、秒杀价快照 + 默认地址快照、afterCommit 复用延迟关单）、结果查询 GET /api/seckill/result?taskId=（校验任务归属防越权）；SeckillServiceImplTest 18 个单测 + SeckillIntegrationTest 3 个并发集成测试（20 用户抢 5 件不超卖、单用户限购 1 件、真实 MQ 建单数一致，中间件未启动自动跳过），`mvn test` 全绿 120/120；已 HTTP 冒烟全链路（详见 tasks.md Task 8）
 - [x] 后台管理模块：`com.mall.admin` —— 分类维护（POST /admin/category、PUT/DELETE /admin/category/{id}、管理端分类树 GET /admin/category/tree 含禁用分类；层级固定两级、删除前校验无子分类且无商品）；商品/SKU 维护（GET /admin/product/page 含下架、POST /admin/product 必须挂二级分类、PUT /admin/product/{id} 仅更新非空字段、PUT /admin/product/status/{id} 上下架、SKU 增改删 POST /admin/product/{productId}/sku、PUT/DELETE /admin/product/sku/{id}）；商品新增/修改/上下架均在事务内发送 ES upsert 同步（MQ 失败抛异常整体回滚）；SKU 增删改后重算 SKU 最低价回写商品展示价（无 SKU 保持原价）并触发 ES upsert + 删除详情缓存 `mall:product:detail:{id}`（ES 文档不含 SKU 字段，搜索展示价取商品表 price，故需回写后同步；商品修改/上下架同样清详情缓存）；订单管理（GET /admin/order/page 全量订单含订单项、PUT /admin/order/deliver/{orderNo} 条件更新仅 1已支付→2已发货、重复发货幂等）；秒杀活动配置（POST /admin/seckill/activity 默认下线、PUT /admin/seckill/activity/{id} 置上线时预热秒杀库存到 Redis、POST/DELETE /admin/seckill/product 活动上线中同步写/清理 Redis 预热 key、GET /admin/seckill/activity/list 管理端全量活动列表含下线/已结束活动——C 端列表只查上线中活动，后台配置页必须用本接口）；详情缓存删除统一在事务提交后 afterCommit 执行（见 5.2 踩坑记录）；AdminSearchController 已从 search 模块迁入 admin 模块（POST /api/admin/search/product/syncAll 路径不变，Task 5 全量同步逻辑复用）；AdminCategoryServiceImplTest/AdminProductServiceImplTest(14)/AdminOrderServiceImplTest/AdminSeckillServiceImplTest 共 44 个单测，`mvn test` 全绿 164/164；已 HTTP 冒烟全链路含普通用户 403（详见 tasks.md Task 9，SubTask 9.1 此前勾选有误、代码已随本次落地）
-- [ ] Task 11 全链路联调（验证前后端契约一致性）
+- [x] Task 11 联调与交付 —— 全部模块完成，项目可整体交付演示
+  - 全链路 HTTP 联调通过：注册→登录→搜索（高亮 `<em>`）→商品详情（缓存命中/空值缓存 `__NULL__` 防穿透/随机 TTL）→购物车（加购/改数量/全选/合计 3×3999=11997）→防重 Token 下单（重放拒绝）→支付（0→1 幂等，DB 库存 300→297、销量 3500→3503）→30s 超时关单（status→4、库存回补 296→297）→秒杀（活动上线→Lua 预扣→taskId 轮询 SUCCESS→秒杀价订单→限购拒绝）；登出后 Token 401、`/doc.html`（context-path=/api，实际路径 `/api/doc.html`）可访问
+  - 浏览器端完整闭环演示通过（Chrome 实测）：登录 → 首页 → 搜索「小米」→ 详情选规格加购（角标 1）→ 购物车结算 → 确认订单提交 → 订单页「去支付」→ 状态变已支付 → 订单详情（地址快照/订单项/支付时间完整）
+  - 注意：秒杀相关联调时种子活动可能已过期，C 端列表为空属正常，用管理员在后台新建活动并上线即可（管理端接口均带 `/api` 前缀）；活动 ID 段 990xxx 为集成测试遗留数据
+  - `mvn clean package` BUILD SUCCESS（163/163 测试全绿，含 ES/MQ/秒杀集成测试）、`npm run test:unit` 6/6、`npm run build` 通过
+  - 运行说明（环境要求、启动顺序、演示账号、种子数据）完善于 `docs/dev-guide.md`
 
 ## 8. 辅助文档（按需阅读）
 

@@ -62,10 +62,10 @@
   - [x] SubTask 10.7（美化重构）: 抽出通用组件 `components/layout/AppHeader.vue`（sticky 导航/路由高亮/头像下拉/购物车角标 defineExpose）、`AppFooter.vue`、`components/user/AuthShell.vue`（登录/注册共用外壳）；登录/注册/地址页美化；主题色收敛到 `main.css` `:root` CSS 变量；约定写入 AGENTS.md 第 6.1 节；单测/类型检查/构建全部通过
   - [x] SubTask 10.8（后台补全与修复）: 新增分类管理页 `AdminCategoryView.vue`（树形 el-table 展示两级分类，新增一级/子分类、编辑名称排序、启停开关确认、删除确认——有子分类/有商品由后端拒绝并提示；路由 /admin/categories 与侧边菜单入口，/admin 重定向改为分类管理；`Category` 类型补 `status` 字段，`adminUpdateCategory` 的 name 放宽为可选对齐「仅更新非空字段」契约）；秒杀管理页改调管理端全量活动列表 GET /admin/seckill/activity/list（C 端接口只查上线中活动，新增默认下线的活动会不可见）；商品页 SKU 保存/删除后同步刷新主商品列表（SKU 变更会重算展示价/库存）；`npm run build` 通过
 
-- [ ] Task 11: 联调与交付
-  - [ ] SubTask 11.1: 全链路联调：注册登录 → 搜索 → 加购 → 下单 → 支付 → 超时关单 → 秒杀
-  - [ ] SubTask 11.2: 完善 AGENTS.md 运行说明（环境要求、启动顺序、演示账号、种子数据说明）
-  - [ ] SubTask 11.3: `mvn test` 与 `npm run test:unit` 全绿，`npm run build` 与后端打包通过
+- [x] Task 11: 联调与交付
+  - [x] SubTask 11.1: 全链路联调：注册登录 → 搜索 → 加购 → 下单 → 支付 → 超时关单 → 秒杀（HTTP 逐环节验证 + Chrome 浏览器完整闭环实测：登录→搜索「小米」→详情加购→结算→提交订单→去支付→订单详情；防重 Token 重放拒绝、支付幂等、30s 关单库存回补、秒杀 taskId 轮询 SUCCESS+限购拒绝均通过；注意管理端接口带 /api 前缀、种子秒杀活动已过期需后台新建上线）
+  - [x] SubTask 11.2: 完善 AGENTS.md 运行说明（环境要求、启动顺序、演示账号、种子数据说明）—— 第 4 节目录树各业务包标记「已开发」；启动顺序/种子数据说明/演示动线补入 `docs/dev-guide.md`（AGENTS 第 8 节引用）
+  - [x] SubTask 11.3: `mvn test` 与 `npm run test:unit` 全绿，`npm run build` 与后端打包通过 —— `mvn clean package` BUILD SUCCESS（163/163 全绿，含 ES/MQ/秒杀集成测试，中间件在线未跳过）、`npm run test:unit` 6/6、`npm run build` 通过
 
 # Task Dependencies
 - [Task 2] depends on [Task 1]
