@@ -150,3 +150,28 @@ CREATE TABLE IF NOT EXISTS sms_seckill_product (
   KEY idx_activity_id (activity_id),
   KEY idx_product_id (product_id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT ='秒杀商品表';
+
+-- ---------------------------------------------------------------------
+-- AI 智能客服模块
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS ai_conversation (
+  id          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+  user_id     BIGINT       NOT NULL COMMENT '用户ID',
+  title       VARCHAR(64)  DEFAULT NULL COMMENT '会话标题（首条消息前20字）',
+  create_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  update_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (id),
+  KEY idx_user_id (user_id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT ='AI客服会话表';
+
+CREATE TABLE IF NOT EXISTS ai_message (
+  id              BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+  conversation_id BIGINT       NOT NULL COMMENT '所属会话ID',
+  role            VARCHAR(16)  NOT NULL COMMENT '角色：system/user/assistant/tool',
+  content         TEXT         DEFAULT NULL COMMENT '消息内容',
+  tool_calls      TEXT         DEFAULT NULL COMMENT 'LLM 触发的 tool_calls JSON',
+  tool_result     TEXT         DEFAULT NULL COMMENT '工具执行结果 JSON',
+  create_time     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (id),
+  KEY idx_conversation_id (conversation_id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT ='AI客服消息表';

@@ -60,6 +60,9 @@
 ```
 my_mall/
 ├── AGENTS.md                # 本文件（核心约定与进度）
+├── .trae/specs/             # 功能规格（每个子目录含 spec.md / tasks.md / checklist.md / progress.md）
+│   ├── init-mall-project/   #   初始全栈商城（已交付，进度见 progress.md）
+│   └── ai-customer-service/ #   AI 智能客服（规划中）
 ├── docs/                    # 辅助文档（见第 8 节，Agent 按需阅读）
 │   ├── dev-guide.md         #   开发环境、常用命令、演示账号
 │   └── middleware.md        #   中间件连接信息与踩坑要点
@@ -125,29 +128,12 @@ my_mall/
 ## 7. 当前进度
 
 > **进度管理约定（必须遵守）**：每完成一个任务（或子任务），必须同步更新两处，缺一不可：
-> 1. `.trae/specs/init-mall-project/tasks.md` —— 勾选对应任务/子任务，并补注实现要点（接口路径、关键设计决策、测试情况）；
-> 2. 本文件（`AGENTS.md`）—— 更新第 7 节「当前进度」清单；若实现过程产生了新的约定、踩坑记录或中间件注意事项，约定补进对应章节，中间件踩坑补进 `docs/middleware.md`。
+> 1. 对应 spec 目录（`.trae/specs/<spec-name>/`）下的 `tasks.md` —— 勾选对应任务/子任务，并补注实现要点（接口路径、关键设计决策、测试情况）；
+> 2. 对应 spec 目录下的 `progress.md` —— 更新进度清单；若实现过程产生了新的约定、踩坑记录或中间件注意事项，约定补进本文件对应章节，中间件踩坑补进 `docs/middleware.md`。
 > 两者更新后才算该任务完成。
 
-- [x] 基础设施：`deploy/docker-compose.yml`（MySQL 8 / Redis 7 / RocketMQ 5 / ES 8.15 / Kibana）+ 初始化 SQL + 种子数据，已验证可连通（中间件踩坑详见 `docs/middleware.md`）
-- [x] 后端骨架：`backend/`（包名 `com.mall`）—— Result/PageResult、全局异常、JWT 工具 + 登录拦截器、Knife4j、application-dev.yml（MySQL 走 3307）、JwtUtilsTest / ResultTest
-- [x] 用户模块：`com.mall.user` —— 注册/登录/登出（BCrypt、JWT + Redis 会话 `mall:token:{token}`）、收货地址 CRUD（默认地址唯一由应用层事务保证、归属校验防越权）；接口前缀 `/api/user`、`/api/address`（详见 tasks.md Task 3）；UserServiceImplTest / AddressServiceImplTest 共 15 个单测
-- [x] 前端商城：`frontend/` —— 全部页面完成（登录/注册、首页、商品列表、搜索、详情、购物车、确认订单、我的订单/详情、收货地址、秒杀、后台管理 ×3）；axios 封装（Token/Result 解包/401 跳转）、user store、路由守卫（登录 + 管理员）；用户 store Vitest 6 个单测，`npm run build` / `npm run test:unit` 通过（详见 tasks.md Task 10）
-  - **API 契约冻结**：商品/搜索/购物车/订单/秒杀/管理端的接口契约已在前端 `frontend/src/api/types.ts` + `src/api/*.ts` 定义（含秒杀 taskId 轮询、下单防重 Token、搜索高亮 `<em>` 标签等约定）。**Task 4-9 后端各模块实现时必须与该契约对齐**，如需调整契约须同步修改前端。
-- [x] 后台分类管理页：`AdminCategoryView.vue`（/admin/categories）—— 树形 el-table 展示两级分类，支持新增一级/子分类、编辑名称/排序、启停开关（确认后调 PUT 仅传 status）、删除（有子分类/有商品由后端拒绝）；`/admin` 重定向改为分类管理；`Category` 类型补 `status` 字段，`adminUpdateCategory` 的 name 放宽为可选（对齐后端「仅更新非空字段」契约，详见 tasks.md SubTask 10.8）
-- [x] 前端美化重构：抽出通用布局组件 `AppHeader.vue` / `AppFooter.vue`（sticky 导航、路由高亮、头像下拉、购物车角标经 defineExpose + App 转发刷新）与用户模块外壳 `AuthShell.vue`（登录/注册共用）；登录/注册/收货地址页美化；主题色收敛到 `main.css` CSS 变量；组件约定见第 5.1 节
-- [x] 商品模块：`com.mall.product` —— 分类树（GET /api/product/category/tree）、商品分页（GET /api/product/page，仅上架 + keyword 模糊搜索 + 分类过滤，不加载 detail 大字段；categoryId 会先展开为「自身 + 全部后代分类 ID」再 IN 查询，选一级分类可命中其下所有二级分类商品）、商品详情（GET /api/product/{id} 含 SKU，缓存三防：空值缓存防穿透 / Redisson 互斥锁防击穿 / 随机 TTL 防雪崩，缓存 key `mall:product:detail:{id}`）；新增 MybatisPlusConfig 分页插件（MyBatis-Plus 3.5.9+ 需单独引入 `mybatis-plus-jsqlparser`）；ProductServiceImplTest 13 个单测，`mvn test` 全绿 35/35（详见 tasks.md Task 4）
-- [x] 购物车模块：`com.mall.cart` —— Redis Hash 购物车（key `mall:cart:{userId}`，field=skuId，value=条目快照 JSON 固化商品信息），增删改查 + 勾选/全选 + 合计聚合（GET /api/cart、POST /api/cart、PUT /api/cart/quantity|selected|selectedAll、DELETE /api/cart/{skuId}，均需登录）；加购校验 SKU 存在/商品上架/库存充足，skuSpec 由 specJson 解析为 " / " 拼接文案，条目 JSON 损坏自动清理降级；CartServiceImplTest 15 个单测，`mvn test` 全绿 50/50（详见 tasks.md Task 6）
-- [x] ES 搜索模块：`com.mall.search` —— 索引 `mall_product`（IK 分词，启动幂等自建 + `deploy/elasticsearch/init-product-index.sh`）、RocketMQ 同步（Topic `mall-product-sync`，upsert/delete，DB 回查式消费，天然幂等）、搜索接口 GET /api/search（多字段高亮 `<em>` + 分类/价格筛选 + 综合/销量/价格排序 + 分页，契约与前端 SearchQuery/SearchProduct 对齐）；SearchSyncIntegrationTest 10 个集成测试（独立 `*_it` 索引/Topic，中间件未启动自动跳过）+ 生产者/消费者单测 11 个，`mvn test` 全绿 75/75（含全量同步 4 个单测）；存量商品全量同步入口已提前实现：管理员接口 POST /api/admin/search/product/syncAll（`ProductIndexService#syncAllProducts`，500/批 bulk，索引空导致搜索全空的修复，Task 9 管理端可直接复用）；注意搜索仅匹配 name/subTitle，不含分类名（详见 tasks.md Task 5）
-- [x] 订单模块：`com.mall.order` —— 下单防重 Token（`mall:order:token:{token}` 绑定用户一次性消费，TTL 10min）、事务内 SKU 条件扣减库存防超卖（`UPDATE ... WHERE stock >= qty`，同 SKU 条目先合并）、订单/订单项快照（orderNo=时间戳+6位随机；addressSnapshot 为 6 字段收货信息 JSON 与前端契约一致）、事务提交后 afterCommit 发送延迟关单消息（Topic `mall-order-close`，延迟级别 `mall.order.close-delay-level` 默认 4=30s 便于演示、生产建议 16=30m）+ 清购物车已购项；模拟支付（条件更新 0→1 幂等，成功累加商品销量）、主动取消/超时关单共用条件更新 0→4（并发只回补一次库存）、订单分页/详情（归属校验防越权）；接口前缀 /api/order 与前端 order.ts 契约一致；OrderServiceImplTest 24 个单测，`mvn test` 全绿 99/99；已全链路 HTTP 冒烟（含 30s 延迟关单与库存回补验证，详见 tasks.md Task 7）
-- [x] 秒杀模块：`com.mall.seckill` —— 活动列表 GET /api/seckill/activities（免登录，剩余库存优先读 Redis `mall:seckill:stock:{spId}` 回退 DB）、启动预热 `SeckillWarmUpRunner`（上线未结束活动的秒杀库存加载到 Redis）、秒杀下单 POST /api/seckill/{spId}（简单限流固定窗口 1s 默认 3 次 + Lua 脚本原子「限购校验+库存预扣+已购计数」`SeckillLua`，MQ 发送失败自动回滚预扣）、消费者异步建单（Topic `mall-seckill-order`，DB 条件扣减兜底防超卖、任务状态幂等、秒杀价快照 + 默认地址快照、afterCommit 复用延迟关单）、结果查询 GET /api/seckill/result?taskId=（校验任务归属防越权）；SeckillServiceImplTest 18 个单测 + SeckillIntegrationTest 3 个并发集成测试（20 用户抢 5 件不超卖、单用户限购 1 件、真实 MQ 建单数一致，中间件未启动自动跳过），`mvn test` 全绿 120/120；已 HTTP 冒烟全链路（详见 tasks.md Task 8）
-- [x] 后台管理模块：`com.mall.admin` —— 分类维护（POST /admin/category、PUT/DELETE /admin/category/{id}、管理端分类树 GET /admin/category/tree 含禁用分类；层级固定两级、删除前校验无子分类且无商品）；商品/SKU 维护（GET /admin/product/page 含下架、POST /admin/product 必须挂二级分类、PUT /admin/product/{id} 仅更新非空字段、PUT /admin/product/status/{id} 上下架、SKU 增改删 POST /admin/product/{productId}/sku、PUT/DELETE /admin/product/sku/{id}）；商品新增/修改/上下架均在事务内发送 ES upsert 同步（MQ 失败抛异常整体回滚）；SKU 增删改后重算 SKU 最低价回写商品展示价（无 SKU 保持原价）并触发 ES upsert + 删除详情缓存 `mall:product:detail:{id}`（ES 文档不含 SKU 字段，搜索展示价取商品表 price，故需回写后同步；商品修改/上下架同样清详情缓存）；订单管理（GET /admin/order/page 全量订单含订单项、PUT /admin/order/deliver/{orderNo} 条件更新仅 1已支付→2已发货、重复发货幂等）；秒杀活动配置（POST /admin/seckill/activity 默认下线、PUT /admin/seckill/activity/{id} 置上线时预热秒杀库存到 Redis、POST/DELETE /admin/seckill/product 活动上线中同步写/清理 Redis 预热 key、GET /admin/seckill/activity/list 管理端全量活动列表含下线/已结束活动——C 端列表只查上线中活动，后台配置页必须用本接口）；详情缓存删除统一在事务提交后 afterCommit 执行（见 5.2 踩坑记录）；AdminSearchController 已从 search 模块迁入 admin 模块（POST /api/admin/search/product/syncAll 路径不变，Task 5 全量同步逻辑复用）；AdminCategoryServiceImplTest/AdminProductServiceImplTest(14)/AdminOrderServiceImplTest/AdminSeckillServiceImplTest 共 44 个单测，`mvn test` 全绿 164/164；已 HTTP 冒烟全链路含普通用户 403（详见 tasks.md Task 9，SubTask 9.1 此前勾选有误、代码已随本次落地）
-- [x] Task 11 联调与交付 —— 全部模块完成，项目可整体交付演示
-  - 全链路 HTTP 联调通过：注册→登录→搜索（高亮 `<em>`）→商品详情（缓存命中/空值缓存 `__NULL__` 防穿透/随机 TTL）→购物车（加购/改数量/全选/合计 3×3999=11997）→防重 Token 下单（重放拒绝）→支付（0→1 幂等，DB 库存 300→297、销量 3500→3503）→30s 超时关单（status→4、库存回补 296→297）→秒杀（活动上线→Lua 预扣→taskId 轮询 SUCCESS→秒杀价订单→限购拒绝）；登出后 Token 401、`/doc.html`（context-path=/api，实际路径 `/api/doc.html`）可访问
-  - 浏览器端完整闭环演示通过（Chrome 实测）：登录 → 首页 → 搜索「小米」→ 详情选规格加购（角标 1）→ 购物车结算 → 确认订单提交 → 订单页「去支付」→ 状态变已支付 → 订单详情（地址快照/订单项/支付时间完整）
-  - 注意：秒杀相关联调时种子活动可能已过期，C 端列表为空属正常，用管理员在后台新建活动并上线即可（管理端接口均带 `/api` 前缀）；活动 ID 段 990xxx 为集成测试遗留数据
-  - `mvn clean package` BUILD SUCCESS（163/163 测试全绿，含 ES/MQ/秒杀集成测试）、`npm run test:unit` 6/6、`npm run build` 通过
-  - 运行说明（环境要求、启动顺序、演示账号、种子数据）完善于 `docs/dev-guide.md`
+- [x] **init-mall-project**：初始全栈商城全部完成并交付（基础设施 / 后端骨架 / 用户 / 商品 / ES 搜索 / 购物车 / 订单 / 秒杀 / 后台管理 / 前端 / 联调，`mvn test` 全绿 163/163、`npm run build` 通过）。详细进度清单与实现要点见 [.trae/specs/init-mall-project/progress.md](.trae/specs/init-mall-project/progress.md)
+- [ ] **ai-customer-service**：AI 智能客服（LLM + Function Calling + SSE 流式）—— Task 1 完成（ai_conversation/ai_message 建表 + `mall.ai` 配置段 + AiConfigProperties，详见 [.trae/specs/ai-customer-service/progress.md](.trae/specs/ai-customer-service/progress.md)），规格见 [.trae/specs/ai-customer-service/](.trae/specs/ai-customer-service/)
 
 ## 8. 辅助文档（按需阅读）
 

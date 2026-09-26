@@ -45,7 +45,7 @@ npm run build          # 生产构建
 
 初始化 SQL 位于 `deploy/mysql/init/`（仅 MySQL 数据卷**首次创建**时自动执行）：
 
-- `01-schema.sql`：建库 `my_mall` + 9 张业务表（ums_user/ums_address、pms_category/pms_product/pms_sku、oms_order/oms_order_item、sms_seckill_activity/sms_seckill_product）。
+- `01-schema.sql`：建库 `my_mall` + 11 张业务表（ums_user/ums_address、pms_category/pms_product/pms_sku、oms_order/oms_order_item、sms_seckill_activity/sms_seckill_product、ai_conversation/ai_message）。
 - `02-seed.sql`：种子数据 —— 3 个一级分类 + 6 个二级分类、14 个在售商品（含 SKU）、演示账号（见下表）、已结束的示例秒杀活动。
 - **秒杀演示注意**：种子秒杀活动已过期，C 端「秒杀」页可能为空。用管理员登录后台「秒杀管理」新建活动（结束时间选未来）并置为上线、添加活动商品后即可抢购；管理端所有接口前缀为 `/api/admin/**`。
 - 商品 ID 段 `990xxx`（分类 99x、活动 990xxx 等）为自动化集成测试保留段，联调时出现属测试遗留数据，不影响演示。
