@@ -28,12 +28,12 @@
     - 输入框 + 发送按钮，Enter 发送（Shift+Enter 换行），sending/空输入禁用防重复提交；关闭面板时 AbortController 中断进行中的流
   - [x] SubTask 4.3: `App.vue` 全局引入 `<AiChatBot />`，确保所有页面可唤起；新增依赖 `marked`、`dompurify`
 
-- [ ] Task 5: 测试、联调与文档
-  - [ ] SubTask 5.1: `ChatServiceImplTest` 单元测试（Mock `OpenAiClient` 返回普通文本 / tool_calls / 异常，验证上下文 Redis 读写、工具调用链路、SSE emitter 发送事件序列）
-  - [ ] SubTask 5.2: `AiToolExecutorTest` 单元测试（Mock SearchService/OrderService，验证各工具参数解析与结果序列化）
-  - [ ] SubTask 5.3: 前端 Vitest 单测（AiChatBot 组件消息渲染、工具卡片展示）
-  - [ ] SubTask 5.4: HTTP 冒烟全链路：登录 → 打开 AI 客服 → 问"有什么手机"→ 看到商品卡片 → 追问"最便宜的是哪款"→ 上下文连贯 → 问"我最近的订单"→ 看到订单卡片 → 限流测试（1 分钟 10 条后 429）
-  - [ ] SubTask 5.5: 更新 `AGENTS.md`（第 7 节勾选 ai-customer-service、第 5 节补 AI 模块编码规范如「SSE 接口异常必须发送 error 事件后 complete」）、`docs/dev-guide.md` 补 AI 配置说明
+- [x] Task 5: 测试、联调与文档
+  - [x] SubTask 5.1: `ChatServiceImplTest`（8 用例）：mock `OpenAiClient`/`AiToolExecutor`/`AiMessageService`/RedisTemplate + 真实 `AiToolRegistry`，覆盖普通文本流式回复与上下文写回、tool_calls 工具链路（tool_call/tool_result/message/done 事件序列 + 第二次请求 messages 含 assistant(tool_calls)/tool 回填）、工具轮数超限去 tools 强制收敛、LLM 异常兜底 error 事件、未启用快速失败、上下文按轮 FIFO 截断、缓存损坏重置、客户端断开中断不持久化；SSE 事件断言通过反射调 `SseEventBuilderImpl#build()` 还原 wire 文本再按 SSE 语法解析（不依赖 Spring 内部 token 布局）；`ChatResult` 无 setter，测试用反射 `appendContent` 构造
+  - [x] SubTask 5.2: `AiToolExecutorTest`（11 用例）：execute 统一入口（未知工具抛 BizException、为无上下文线程补 LoginUser 并在结束后清理、已有上下文不覆盖不清理、业务异常转 `{"error":...}` 不外抛）；queryProduct 参数解析（keyword/sort/pageSize=3）+ ES 高亮 `<em>` 清理；queryUserOrders 状态过滤/分页透传（pageSize=5）+ 状态文案映射 + 时间裁剪到分；queryOrderDetail 缺 orderNo 抛错、明细/支付时间序列化、items null 兜底空数组
+  - [x] SubTask 5.3: 前端 Vitest `AiChatBot.spec.ts`（6 用例）：面板开合与欢迎语、发送后用户气泡 + createChatStream 参数、流式增量 Markdown 渲染与打字光标收尾、商品卡片（含 `/product/{id}` 跳转链接）、订单卡片 + tool_call 期间「正在查询…」占位、error 事件错误样式展示且可继续发送；`npm run type-check`（vue-tsc）通过。**顺带修复组件 bug**：SSE 回调直接改 push 前的原始对象不触发 Vue 响应式渲染，改为从 `messages.value` 取回代理引用后再增量更新
+  - [x] SubTask 5.4: HTTP 冒烟全链路（真实 DeepSeek `deepseek-flash`）：登录 → 「有什么手机」→ queryProduct 工具调用返回商品卡片数据 + Markdown 表格 → 「最便宜的是哪款」上下文连贯（零工具引用上轮）→ 「我最近的订单」订单卡片数据 → 限流验证 HTTP 429（`{"code":429,"message":"发送太频繁…"}`）→ `ai_conversation`/`ai_message` 异步落库正常。**联调修复两处数据问题**：① 种子商品副标题无「手机」关键词且 ik_smart 把「智能手机」切成整词，问「有什么手机」搜不到——更新 `02-seed.sql` 与线上库副标题（「…5G 手机」空格分词）+ 管理端 `POST /admin/search/product/syncAll` 重建索引；② docker exec 传中文会乱码，改用 `CONVERT(UNHEX('..') USING utf8mb4)` 纯 ASCII SQL
+  - [x] SubTask 5.5: 文档更新——`AGENTS.md` 第 7 节勾选交付、第 5.2 节新增「AI 模块」编码规范（SSE error 事件兜底/工具失败不外抛/结果精简/api-key 环境变量/前端响应式代理引用）；`docs/dev-guide.md` 新增「AI 智能客服配置」章节（环境变量注入与进程重启注意、模型名以 GET /models 为准、开关/限流、冒烟动线、排障入口）
 
 # Task Dependencies
 

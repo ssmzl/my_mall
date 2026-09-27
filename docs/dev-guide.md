@@ -59,6 +59,15 @@ npm run build          # 生产构建
 
 密码在数据库中以 BCrypt 存储（明文 `123456`，哈希见 `deploy/mysql/init/02-seed.sql` 注释）。
 
+## AI 智能客服配置
+
+- **API Key**：走系统环境变量 `MALL_AI_API_KEY`（DeepSeek 官网申请，`sk-` 开头）。**注意：设置系统变量后必须重启进程**，已运行的终端/IDE 读不到新变量。
+- **模型**：`mall.ai.llm.model`，当前配置 `deepseek-flash`（便宜档）。可用模型以 `GET https://api.deepseek.com/models` 为准（曾用 `deepseek-chat`，平台已下线该名称会报 404）。
+- **开关**：`mall.ai.enabled`，生产/演示前置条件是 `enabled=true` 且 api-key 非空（`AiConfigProperties#available()`）；未启用时接口返回友好提示不报错。
+- **限流**：每用户每分钟 10 条（`mall.ai.limit.rate-limit-per-minute`），Redis 固定窗口，超限返回 HTTP 429。
+- **冒烟动线**：登录 → 问「有什么手机」（LLM 调 queryProduct 返回商品卡片）→ 追问「最便宜的是哪款」（上下文连贯）→ 问「我最近的订单」（订单卡片）→ 快速发 11 条验证 429。
+- **排障**：LLM 相关错误看后端日志 `[AI]` 前缀；`Authentication Fails` = key 无效；商品搜不到先跑 `GET /api/search?keyword=xx` 排除 ES 数据问题（空结果时 LLM 会自己换词重试）。
+
 ## 一键演示动线（联调已验证）
 
 注册/登录 → 首页/分类 → 搜索「小米」（高亮）→ 商品详情选规格加购 → 购物车结算 → 确认订单提交（防重 Token）→ 我的订单「去支付」→ 订单详情查看快照；不支付等 30 秒可观察延迟消息自动关单与库存回补（`mall.order.close-delay-level` 默认 4=30s，便于演示）。

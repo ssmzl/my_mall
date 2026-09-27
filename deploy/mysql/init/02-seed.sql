@@ -33,9 +33,9 @@ INSERT INTO pms_category (id, parent_id, name, level, sort, status) VALUES
 -- 商品：每个二级分类 2-3 个
 -- ---------------------------------------------------------------------
 INSERT INTO pms_product (id, category_id, name, sub_title, main_pic, detail, price, stock, sales, status) VALUES
-(1,  11, 'Apple iPhone 15 Pro',       'A17 Pro 芯片，钛金属机身',        'https://picsum.photos/seed/iphone15pro/600/600',   '<p>iPhone 15 Pro，搭载 A17 Pro 芯片，支持 USB-C。</p>',           8999.00, 300, 1200, 1),
-(2,  11, '小米14',                    '徕卡光学镜头，骁龙8 Gen3',        'https://picsum.photos/seed/xiaomi14/600/600',      '<p>小米14，徕卡 Summilux 镜头，澎湃OS。</p>',                     3999.00, 450, 3500, 1),
-(3,  11, '华为 Mate 60 Pro',          '卫星通话，昆仑玻璃',              'https://picsum.photos/seed/mate60pro/600/600',     '<p>华为 Mate 60 Pro，支持卫星通话与灵犀通信。</p>',                 6499.00, 200, 2800, 1),
+(1,  11, 'Apple iPhone 15 Pro',       'A17 Pro 芯片，钛金属机身，旗舰 5G 手机', 'https://picsum.photos/seed/iphone15pro/600/600',   '<p>iPhone 15 Pro，搭载 A17 Pro 芯片，支持 USB-C。</p>',           8999.00, 300, 1200, 1),
+(2,  11, '小米14',                    '徕卡光学镜头，骁龙8 Gen3，5G 手机',    'https://picsum.photos/seed/xiaomi14/600/600',      '<p>小米14，徕卡 Summilux 镜头，澎湃OS。</p>',                     3999.00, 450, 3500, 1),
+(3,  11, '华为 Mate 60 Pro',          '卫星通话，昆仑玻璃，5G 手机',         'https://picsum.photos/seed/mate60pro/600/600',     '<p>华为 Mate 60 Pro，支持卫星通话与灵犀通信。</p>',                 6499.00, 200, 2800, 1),
 (4,  12, 'Apple AirPods Pro 2',       '主动降噪，USB-C 充电盒',          'https://picsum.photos/seed/airpodspro2/600/600',   '<p>AirPods Pro 第二代，自适应通透模式。</p>',                      1899.00, 300, 2100, 1),
 (5,  12, '小米手环8',                 '1.62 英寸 AMOLED 跑道屏',         'https://picsum.photos/seed/miband8/600/600',       '<p>小米手环8，150+ 运动模式，16 天续航。</p>',                      249.00, 500, 8600, 1),
 (6,  21, '海尔 501 升对开门冰箱',     '一级能效，风冷无霜',              'https://picsum.photos/seed/haier-fridge/600/600',  '<p>海尔对开门冰箱，501L 大容量，双变频静音。</p>',                  3999.00, 60,  320,  1),

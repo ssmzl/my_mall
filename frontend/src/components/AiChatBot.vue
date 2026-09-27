@@ -81,8 +81,9 @@ async function send(): Promise<void> {
   input.value = ''
   sending.value = true
   messages.value.push({ id: nextMsgId(), role: 'user', content: message, cards: [], typing: false, failed: false })
-  const aiMsg: ChatMsg = { id: nextMsgId(), role: 'assistant', content: '', cards: [], typing: true, failed: false }
-  messages.value.push(aiMsg)
+  messages.value.push({ id: nextMsgId(), role: 'assistant', content: '', cards: [], typing: true, failed: false })
+  // 从响应式数组取回代理引用：SSE 回调里直接改 push 前的原始对象不会触发渲染
+  const aiMsg = messages.value[messages.value.length - 1]!
   scrollToBottom()
 
   abortController = new AbortController()
@@ -495,6 +496,7 @@ watch(() => [messages.value.map((m) => [m.content, m.cards.length]), queryingLab
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
 }
 

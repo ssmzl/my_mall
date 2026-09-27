@@ -119,6 +119,12 @@ my_mall/
 - **管理端与 C 端列表接口分离**：C 端列表接口只返回在线/有效数据（如秒杀活动只查「已上线且未结束」）。新增数据若默认下线/禁用，C 端接口查不到属正常现象，管理端必须提供独立的全量列表接口（如 `GET /admin/seckill/activity/list` 返回含下线/已结束活动），后台配置页一律调管理端接口，不能复用 C 端接口。
 - **前端增删改后刷新受影响的列表**：操作会级联影响其他已展示数据时，前端必须主动刷新对应列表（如管理端 SKU 增删改会重算商品展示价/库存，保存后除刷新 SKU 弹层外还需刷新主商品列表），不能假设后端返回的提示信息够用。
 - **接口路径必须与前端契约逐字对齐**：后端 Controller 的 `@RequestMapping` 基路径 + 方法路径拼出来的完整路径，要与前端 `src/api/*.ts` 中定义的完全一致（曾因基路径 `/admin/product` 下写 `/sku/{id}`、前端只拼了 `/admin/sku/{id}` 导致 404）。修改路径时前后端同步改。
+- **AI 模块（`com.mall.ai`）**：
+  - SSE 接口异常必须发送 `error` 事件后 `complete()`，严禁只 complete 不发事件（前端会静默无响应）；客户端断开（send 失败）包装为 `BizException` 中断流程并兜底 try/catch。
+  - 工具执行失败不外抛：返回 `{"error": "..."}` JSON 交由 LLM 向用户解释，保证 SSE 流不中断。
+  - 工具结果必须精简字段（商品 3 条、订单每页 5 条、时间去掉秒），控制多轮上下文体积。
+  - LLM api-key 一律走环境变量 `MALL_AI_API_KEY`，严禁硬编码进代码或提交到仓库；`enabled=false` 时接口需返回友好提示而非报错。
+  - 前端流式增量必须改「从响应式数组取回的代理引用」，直接改 push 前的原始对象不会触发 Vue 渲染（流式文本会憋到流结束才显示）。
 
 ## 6. Git 约定
 
@@ -134,7 +140,7 @@ my_mall/
 >    两者更新后才算该任务完成。
 
 - [x] **init-mall-project**：初始全栈商城全部完成并交付（基础设施 / 后端骨架 / 用户 / 商品 / ES 搜索 / 购物车 / 订单 / 秒杀 / 后台管理 / 前端 / 联调，`mvn test` 全绿 163/163、`npm run build` 通过）。详细进度清单与实现要点见 [.trae/specs/init-mall-project/progress.md](.trae/specs/init-mall-project/progress.md)
-- [ ] **ai-customer-service**：AI 智能客服（LLM + Function Calling + SSE 流式）—— Task 1、2、3、4 完成（建表 + `mall.ai` 配置 + `OpenAiClient` 流式 LLM 客户端 + `AiToolRegistry`/`AiToolExecutor` Function Calling + `ChatService` 上下文/工具编排 + `/api/ai/chat/stream` SSE 接口 + 限流 + 异步持久化 + 前端 `AiChatBot.vue` 聊天组件（fetch 流式 SSE、Markdown 渲染、工具结果卡片），详见 [.trae/specs/ai-customer-service/progress.md](.trae/specs/ai-customer-service/progress.md)），规格见 [.trae/specs/ai-customer-service/](.trae/specs/ai-customer-service/)
+- [x] **ai-customer-service**：AI 智能客服（LLM + Function Calling + SSE 流式）全部完成并交付（建表 + `mall.ai` 配置 + `OpenAiClient` 流式 LLM 客户端 + `AiToolRegistry`/`AiToolExecutor` Function Calling + `ChatService` 上下文/工具编排 + `/api/ai/chat/stream` SSE 接口 + 限流 + 异步持久化 + 前端 `AiChatBot.vue` 聊天组件 + 前后端单测 + 冒烟联调，`mvn test` 全绿 182/182、前端 Vitest 12/12、`npm run build` 通过），详见 [.trae/specs/ai-customer-service/progress.md](.trae/specs/ai-customer-service/progress.md)，规格见 [.trae/specs/ai-customer-service/](.trae/specs/ai-customer-service/)
 
 ## 8. 辅助文档（按需阅读）
 

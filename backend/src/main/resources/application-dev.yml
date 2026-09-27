@@ -70,12 +70,13 @@ mall:
     task-ttl-minutes: 30
   # AI 智能客服（OpenAI 兼容接口，api-key 生产环境务必走环境变量覆盖）
   ai:
-    # 未配置 api-key 时保持 false，AI 接口返回友好提示、不影响应用启动
-    enabled: false
+    # api-key 已通过环境变量 MALL_AI_API_KEY 注入（available() = enabled 且 key 非空）
+    enabled: true
     llm:
       base-url: https://api.deepseek.com/v1/chat/completions
       api-key: ${MALL_AI_API_KEY:}
-      model: deepseek-chat
+      # 便宜模型（DeepSeek 平台当前提供的模型以 GET /models 为准）
+      model: deepseek-flash
       temperature: 0.7
       # 单次请求超时（秒），流式输出整体耗时不受此限
       connect-timeout-seconds: 10
