@@ -7,6 +7,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mall.common.BizException;
 import com.mall.common.PageResult;
+import com.mall.product.cache.CategoryTreeCache;
 import com.mall.product.dto.ProductDetailVO;
 import com.mall.product.entity.PmsCategory;
 import com.mall.product.entity.PmsProduct;
@@ -73,13 +74,30 @@ public class ProductServiceImpl implements ProductService {
     private final StringRedisTemplate stringRedisTemplate;
     private final RedissonClient redissonClient;
     private final ObjectMapper objectMapper;
+    private final CategoryTreeCache categoryTreeCache;
 
     @Override
     public List<PmsCategory> categoryTree() {
+        // 读缓存（key: mall:cache:category:tree:c，管理端变更分类后由 AdminCategoryService 驱逐）
+        List<PmsCategory> cached = categoryTreeCache.get(CategoryTreeCache.KEY_C);
+        if (cached != null) {
+            return cached;
+        }
+        List<PmsCategory> tree = buildEnabledTree();
+        categoryTreeCache.put(CategoryTreeCache.KEY_C, tree);
+        return tree;
+    }
+
+    /** 查库构建 C 端两级分类树（仅启用分类） */
+    private List<PmsCategory> buildEnabledTree() {
         List<PmsCategory> all = categoryMapper.selectList(new LambdaQueryWrapper<PmsCategory>()
                 .eq(PmsCategory::getStatus, STATUS_ON)
                 .orderByAsc(PmsCategory::getSort));
-        // 表结构固定两级：按父ID分组后挂到一级分类下
+        return buildTwoLevelTree(all);
+    }
+
+    /** 表结构固定两级：按父ID分组后挂到一级分类下 */
+    private List<PmsCategory> buildTwoLevelTree(List<PmsCategory> all) {
         Map<Long, List<PmsCategory>> byParent = all.stream()
                 .collect(Collectors.groupingBy(PmsCategory::getParentId));
         List<PmsCategory> roots = byParent.getOrDefault((long) ROOT_PARENT_ID, List.of());

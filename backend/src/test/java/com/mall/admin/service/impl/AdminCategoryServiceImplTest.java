@@ -2,9 +2,11 @@ package com.mall.admin.service.impl;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mall.admin.dto.AdminCategoryAddDTO;
 import com.mall.admin.dto.AdminCategoryUpdateDTO;
 import com.mall.common.BizException;
+import com.mall.product.cache.CategoryTreeCache;
 import com.mall.product.entity.PmsCategory;
 import com.mall.product.mapper.CategoryMapper;
 import com.mall.product.mapper.ProductMapper;
@@ -15,6 +17,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 
 import java.util.List;
 
@@ -37,6 +41,12 @@ class AdminCategoryServiceImplTest {
     @Mock
     private ProductMapper productMapper;
 
+    @Mock
+    private StringRedisTemplate stringRedisTemplate;
+
+    @Mock
+    private ValueOperations<String, String> valueOperations;
+
     private AdminCategoryServiceImpl service;
 
     @BeforeEach
@@ -44,7 +54,10 @@ class AdminCategoryServiceImplTest {
         // lambda 条件依赖 TableInfo 元数据，单测中手动初始化
         MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
         TableInfoHelper.initTableInfo(assistant, PmsCategory.class);
-        service = new AdminCategoryServiceImpl(categoryMapper, productMapper);
+        // 真实 CategoryTreeCache + mock Redis：tree() 缓存未命中回源，增删改后驱逐走 delete（mock 默认返回不影响断言）
+        service = new AdminCategoryServiceImpl(categoryMapper, productMapper,
+                new CategoryTreeCache(stringRedisTemplate, new ObjectMapper().findAndRegisterModules()));
+        org.mockito.Mockito.lenient().when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
     }
 
     @Test

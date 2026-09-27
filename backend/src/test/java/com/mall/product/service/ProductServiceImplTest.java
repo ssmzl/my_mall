@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mall.common.BizException;
 import com.mall.common.PageResult;
+import com.mall.product.cache.CategoryTreeCache;
 import com.mall.product.dto.ProductDetailVO;
 import com.mall.product.entity.PmsCategory;
 import com.mall.product.entity.PmsProduct;
@@ -89,7 +90,8 @@ class ProductServiceImplTest {
         TableInfoHelper.initTableInfo(assistant, PmsProduct.class);
         TableInfoHelper.initTableInfo(assistant, PmsCategory.class);
         productService = new ProductServiceImpl(
-                categoryMapper, productMapper, skuMapper, stringRedisTemplate, redissonClient, objectMapper);
+                categoryMapper, productMapper, skuMapper, stringRedisTemplate, redissonClient, objectMapper,
+                new CategoryTreeCache(stringRedisTemplate, objectMapper));
         // opsForValue 在部分测试（如分类树）中不会被调用，用 lenient 避免 UnnecessaryStubbing
         lenient().when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
     }

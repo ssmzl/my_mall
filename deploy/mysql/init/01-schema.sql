@@ -171,7 +171,23 @@ CREATE TABLE IF NOT EXISTS ai_message (
   content         TEXT         DEFAULT NULL COMMENT '消息内容',
   tool_calls      TEXT         DEFAULT NULL COMMENT 'LLM 触发的 tool_calls JSON',
   tool_result     TEXT         DEFAULT NULL COMMENT '工具执行结果 JSON',
+  prompt_tokens     INT        DEFAULT NULL COMMENT '该轮 LLM 消耗的 prompt tokens（仅记在每轮最终 assistant 消息上，LLM 未返回时为 NULL）',
+  completion_tokens INT        DEFAULT NULL COMMENT '该轮 LLM 消耗的 completion tokens（含义同上）',
   create_time     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (id),
   KEY idx_conversation_id (conversation_id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT ='AI客服消息表';
+
+CREATE TABLE IF NOT EXISTS ai_config (
+  id                   BIGINT         NOT NULL COMMENT '主键，固定为 1（单行配置）',
+  enabled              TINYINT        NOT NULL DEFAULT 0 COMMENT '是否启用 AI 客服：0禁用 1启用',
+  base_url             VARCHAR(512)   NOT NULL COMMENT 'LLM chat completions 端点 URL',
+  api_key              VARCHAR(512)   DEFAULT NULL COMMENT 'LLM API Key（管理端响应脱敏，留空保存表示保留原值）',
+  model                VARCHAR(64)    NOT NULL COMMENT '模型名称',
+  temperature          DECIMAL(3, 2)  NOT NULL DEFAULT 0.70 COMMENT '温度（0-2）',
+  max_rounds           INT            NOT NULL DEFAULT 10 COMMENT '上下文保留轮数',
+  ttl_minutes          INT            NOT NULL DEFAULT 30 COMMENT '上下文 Redis TTL（分钟）',
+  rate_limit_per_minute INT           NOT NULL DEFAULT 10 COMMENT '用户级限流（条/分钟）',
+  update_time          DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT ='AI 客服配置表（单行，id=1）';

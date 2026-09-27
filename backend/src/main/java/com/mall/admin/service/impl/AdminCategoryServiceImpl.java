@@ -5,6 +5,7 @@ import com.mall.admin.dto.AdminCategoryAddDTO;
 import com.mall.admin.dto.AdminCategoryUpdateDTO;
 import com.mall.admin.service.AdminCategoryService;
 import com.mall.common.BizException;
+import com.mall.product.cache.CategoryTreeCache;
 import com.mall.product.entity.PmsCategory;
 import com.mall.product.entity.PmsProduct;
 import com.mall.product.mapper.CategoryMapper;
@@ -36,6 +37,7 @@ public class AdminCategoryServiceImpl implements AdminCategoryService {
 
     private final CategoryMapper categoryMapper;
     private final ProductMapper productMapper;
+    private final CategoryTreeCache categoryTreeCache;
 
     @Override
     public void add(AdminCategoryAddDTO dto) {
@@ -57,6 +59,7 @@ public class AdminCategoryServiceImpl implements AdminCategoryService {
             category.setLevel(LEVEL_TWO);
         }
         categoryMapper.insert(category);
+        evictTreeCacheAfterChange();
         log.info("管理端新增分类成功: id={}, parentId={}, name={}", category.getId(), dto.getParentId(), dto.getName());
     }
 
@@ -74,6 +77,7 @@ public class AdminCategoryServiceImpl implements AdminCategoryService {
             category.setStatus(dto.getStatus());
         }
         categoryMapper.updateById(category);
+        evictTreeCacheAfterChange();
         log.info("管理端修改分类成功: id={}, name={}, sort={}, status={}",
                 id, category.getName(), category.getSort(), category.getStatus());
     }
@@ -92,11 +96,17 @@ public class AdminCategoryServiceImpl implements AdminCategoryService {
             throw new BizException("该分类下存在商品，无法删除");
         }
         categoryMapper.deleteById(id);
+        evictTreeCacheAfterChange();
         log.info("管理端删除分类成功: id={}", id);
     }
 
     @Override
     public List<PmsCategory> tree() {
+        // 读缓存（key: mall:cache:category:tree:admin，增删改成功后驱逐）
+        List<PmsCategory> cached = categoryTreeCache.get(CategoryTreeCache.KEY_ADMIN);
+        if (cached != null) {
+            return cached;
+        }
         // 管理端树包含禁用分类（与前台 categoryTree 的差异仅在不过滤 status）
         List<PmsCategory> all = categoryMapper.selectList(new LambdaQueryWrapper<PmsCategory>()
                 .orderByAsc(PmsCategory::getSort));
@@ -104,7 +114,18 @@ public class AdminCategoryServiceImpl implements AdminCategoryService {
                 .collect(Collectors.groupingBy(PmsCategory::getParentId));
         List<PmsCategory> roots = byParent.getOrDefault(ROOT_PARENT_ID, List.of());
         roots.forEach(root -> root.setChildren(byParent.getOrDefault(root.getId(), List.of())));
+        categoryTreeCache.put(CategoryTreeCache.KEY_ADMIN, roots);
         return roots;
+    }
+
+    /**
+     * 分类增删改成功后驱逐 C 端与管理端两个树缓存 key。
+     *
+     * <p>约定：当前各操作无事务上下文，直接删除；若将来加上事务，
+     * 必须改为事务提交后执行（TransactionSynchronizationManager#afterCommit），避免「删缓存 → 提交」窗口内并发读回写脏数据。
+     */
+    private void evictTreeCacheAfterChange() {
+        categoryTreeCache.evictAll();
     }
 
     private PmsCategory requireCategory(Long id) {
