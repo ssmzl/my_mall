@@ -62,7 +62,8 @@ my_mall/
 ├── AGENTS.md                # 本文件（核心约定与进度）
 ├── .trae/specs/             # 功能规格（每个子目录含 spec.md / tasks.md / checklist.md / progress.md）
 │   ├── init-mall-project/   #   初始全栈商城（已交付，进度见 progress.md）
-│   └── ai-customer-service/ #   AI 智能客服（规划中）
+│   ├── ai-customer-service/ #   AI 智能客服（已交付，进度见 progress.md）
+│   └── add-cache-ai-config-stats/ #   项目收尾：分类树缓存 + 管理端 AI 配置 + 数据看板（规划中）
 ├── docs/                    # 辅助文档（见第 8 节，Agent 按需阅读）
 │   ├── dev-guide.md         #   开发环境、常用命令、演示账号
 │   └── middleware.md        #   中间件连接信息与踩坑要点
@@ -141,6 +142,7 @@ my_mall/
 
 - [x] **init-mall-project**：初始全栈商城全部完成并交付（基础设施 / 后端骨架 / 用户 / 商品 / ES 搜索 / 购物车 / 订单 / 秒杀 / 后台管理 / 前端 / 联调，`mvn test` 全绿 163/163、`npm run build` 通过）。详细进度清单与实现要点见 [.trae/specs/init-mall-project/progress.md](.trae/specs/init-mall-project/progress.md)
 - [x] **ai-customer-service**：AI 智能客服（LLM + Function Calling + SSE 流式）全部完成并交付（建表 + `mall.ai` 配置 + `OpenAiClient` 流式 LLM 客户端 + `AiToolRegistry`/`AiToolExecutor` Function Calling + `ChatService` 上下文/工具编排 + `/api/ai/chat/stream` SSE 接口 + 限流 + 异步持久化 + 前端 `AiChatBot.vue` 聊天组件 + 前后端单测 + 冒烟联调，`mvn test` 全绿 182/182、前端 Vitest 12/12、`npm run build` 通过），详见 [.trae/specs/ai-customer-service/progress.md](.trae/specs/ai-customer-service/progress.md)，规格见 [.trae/specs/ai-customer-service/](.trae/specs/ai-customer-service/)
+- [ ] **add-cache-ai-config-stats**：项目收尾——分类树 Redis 缓存（管理端增删改驱逐）、管理端 AI 配置（`ai_config` 表 + 即时生效 + api-key 脱敏）、管理端数据看板（销量/销售额/AI 对话轮数/AI token/Top10 销量变化，含 `ai_message` token 采集），规格见 [.trae/specs/add-cache-ai-config-stats/](.trae/specs/add-cache-ai-config-stats/)，进度见 [.trae/specs/add-cache-ai-config-stats/progress.md](.trae/specs/add-cache-ai-config-stats/progress.md)
 
 ## 8. 辅助文档（按需阅读）
 
