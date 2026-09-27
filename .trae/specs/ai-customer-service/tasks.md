@@ -7,10 +7,10 @@
   - [x] SubTask 1.2: pom.xml 未加依赖——LLM HTTP 调用改用 JDK 17 内置 `java.net.http.HttpClient`（支持流式响应），Jackson/校验随 Boot 传递依赖已具备；新增 `AiConfigProperties`（`mall.ai` 前缀，嵌套 llm/context/limit 分组，`available()` = enabled 且 apiKey 非空）+ `AiConfig`（`@EnableConfigurationProperties` + `@EnableAsync` + `aiTaskExecutor` 线程池）
   - [x] SubTask 1.3: `application-dev.yml` 追加 `mall.ai` 配置段（默认 DeepSeek 端点，api-key 走环境变量 `MALL_AI_API_KEY`，enabled 默认 false 不阻断启动）；`mvn compile` 通过
 
-- [ ] Task 2: LLM 客户端与 Function Calling
-  - [ ] SubTask 2.1: 通用 LLM HTTP 客户端 `OpenAiClient`（封装 chat completions 请求/响应，支持流式 `stream=true` 解析 SSE chunk），异常时抛 `BizException`
-  - [ ] SubTask 2.2: 定义工具 JSON Schema + 注册表 `AiToolRegistry`（queryProduct / queryUserOrders / queryOrderDetail），每个工具含 name / description / parameters schema / 执行 lambda
-  - [ ] SubTask 2.3: 工具执行器 `AiToolExecutor`：注入现有 `SearchService`/`ProductService`/`OrderService`，执行后返回 JSON 字符串结果；queryProduct 返回前 3 条商品摘要（id/name/price/mainPic）
+- [x] Task 2: LLM 客户端与 Function Calling（`mvn compile` 通过）
+  - [x] SubTask 2.1: `com.mall.ai.llm.OpenAiClient`——JDK 17 HttpClient 封装 chat completions（stream=true），`streamChat(messages, tools, deltaConsumer)` 逐段回调增量文本并聚合 tool_calls 分片（按 index 拼 arguments），返回 `ChatResult`（content/toolCalls/finishReason）；非 200、SSE 流内 error、解析失败均抛 `BizException` 并记日志
+  - [x] SubTask 2.2: `com.mall.ai.tool.AiToolRegistry`——queryProduct / queryUserOrders / queryOrderDetail 三个工具（text block 定义 JSON Schema + 执行 lambda），`toolSchemas()` 产出 OpenAI 兼容 tools 数组；依赖方向 Registry→Executor 避免循环依赖
+  - [x] SubTask 2.3: `com.mall.ai.tool.AiToolExecutor`——注入 `ProductSearchService`/`OrderService`；`execute(tool, userId, args)` 统一在无 LoginUser 上下文的线程补身份（订单接口归属校验依赖 ThreadLocal），工具失败返回 `{"error":...}` 交由 LLM 解释而不中断 SSE；queryProduct 走 ES 搜索返回前 3 条摘要（id/name/subTitle 去高亮/price/mainPic），订单结果精简字段并格式化时间
 
 - [ ] Task 3: 聊天服务、上下文管理与 SSE 接口
   - [ ] SubTask 3.1: `ChatService`（接口 + `ChatServiceImpl`）核心方法 `streamChat(Long userId, String message, SseEmitter emitter)`：

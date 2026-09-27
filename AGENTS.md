@@ -1,4 +1,4 @@
-# AGENTS.md — my_mall 全栈商城
+# AGENTS.md — my\_mall 全栈商城
 
 ## 1. 项目简介
 
@@ -41,19 +41,19 @@
 
 ## 3. 技术栈与版本
 
-| 层 | 技术 | 版本 |
-| --- | --- | --- |
-| 后端 | JDK | 17 |
-| 后端 | Spring Boot | 3.5.x |
-| 后端 | MyBatis-Plus | 3.5.x |
-| 后端 | Spring Security + JWT | 6.x（随 Boot） |
-| 前端 | Vue | 3.5 |
-| 前端 | TypeScript / Vite | 5.x / 随 frontend |
-| 前端 | Element Plus | 2.x |
-| 数据 | MySQL | 8.0 |
-| 缓存 | Redis | 7 |
-| 消息 | RocketMQ | 5.3（apache/rocketmq:5.3.2） |
-| 搜索 | Elasticsearch / Kibana | 8.15（8.15.3，两者版本必须一致） |
+| 层  | 技术                     | 版本                         |
+| -- | ---------------------- | -------------------------- |
+| 后端 | JDK                    | 17                         |
+| 后端 | Spring Boot            | 3.5.x                      |
+| 后端 | MyBatis-Plus           | 3.5.x                      |
+| 后端 | Spring Security + JWT  | 6.x（随 Boot）                |
+| 前端 | Vue                    | 3.5                        |
+| 前端 | TypeScript / Vite      | 5.x / 随 frontend           |
+| 前端 | Element Plus           | 2.x                        |
+| 数据 | MySQL                  | 8.0                        |
+| 缓存 | Redis                  | 7                          |
+| 消息 | RocketMQ               | 5.3（apache/rocketmq:5.3.2） |
+| 搜索 | Elasticsearch / Kibana | 8.15（8.15.3，两者版本必须一致）      |
 
 ## 4. 目录结构约定
 
@@ -92,7 +92,7 @@ my_mall/
 
 ## 5. 编码规范
 
-- **Java**：驼峰命名；类 UpperCamelCase，方法/字段 lowerCamelCase；常量 UPPER_SNAKE_CASE。
+- **Java**：驼峰命名；类 UpperCamelCase，方法/字段 lowerCamelCase；常量 UPPER\_SNAKE\_CASE。
 - **统一返回**：所有 Controller 返回 `Result<T>`（code / message / data），不直接裸返回实体。
 - **分层**：Service 一律「接口 + 实现类」（`XxxService` + `XxxServiceImpl`），Controller 不直接依赖 Mapper。
 - **异常**：严格抛出业务异常（如 `BizException`），由全局异常处理器转 `Result`；**严禁空 catch 吞异常**。
@@ -102,7 +102,7 @@ my_mall/
 
 ### 5.1 前端组件与样式约定
 
-- **通用组件放 `frontend/src/components/`，页面放 `views/`**：多个页面共用的 UI（导航栏、页脚、表单外壳等）必须抽成组件，**不允许在页面里复制粘贴同一份模板/样式**。
+- **通用组件放** **`frontend/src/components/`，页面放** **`views/`**：多个页面共用的 UI（导航栏、页脚、表单外壳等）必须抽成组件，**不允许在页面里复制粘贴同一份模板/样式**。
   - `components/layout/`：全局布局组件（`AppHeader.vue` 顶部导航、`AppFooter.vue` 页脚），由 `App.vue` 统一引入。
   - `components/user/`：用户模块共用组件（如 `AuthShell.vue` 登录/注册页外壳）。
   - 后续若新增共用组件（如商品卡片、价格组件），按业务域建子目录存放。
@@ -128,20 +128,21 @@ my_mall/
 ## 7. 当前进度
 
 > **进度管理约定（必须遵守）**：每完成一个任务（或子任务），必须同步更新两处，缺一不可：
+>
 > 1. 对应 spec 目录（`.trae/specs/<spec-name>/`）下的 `tasks.md` —— 勾选对应任务/子任务，并补注实现要点（接口路径、关键设计决策、测试情况）；
 > 2. 对应 spec 目录下的 `progress.md` —— 更新进度清单；若实现过程产生了新的约定、踩坑记录或中间件注意事项，约定补进本文件对应章节，中间件踩坑补进 `docs/middleware.md`。
-> 两者更新后才算该任务完成。
+>    两者更新后才算该任务完成。
 
 - [x] **init-mall-project**：初始全栈商城全部完成并交付（基础设施 / 后端骨架 / 用户 / 商品 / ES 搜索 / 购物车 / 订单 / 秒杀 / 后台管理 / 前端 / 联调，`mvn test` 全绿 163/163、`npm run build` 通过）。详细进度清单与实现要点见 [.trae/specs/init-mall-project/progress.md](.trae/specs/init-mall-project/progress.md)
-- [ ] **ai-customer-service**：AI 智能客服（LLM + Function Calling + SSE 流式）—— Task 1 完成（ai_conversation/ai_message 建表 + `mall.ai` 配置段 + AiConfigProperties，详见 [.trae/specs/ai-customer-service/progress.md](.trae/specs/ai-customer-service/progress.md)），规格见 [.trae/specs/ai-customer-service/](.trae/specs/ai-customer-service/)
+- [ ] **ai-customer-service**：AI 智能客服（LLM + Function Calling + SSE 流式）—— Task 1、2 完成（建表 + `mall.ai` 配置 + `OpenAiClient` 流式 LLM 客户端 + `AiToolRegistry`/`AiToolExecutor` Function Calling，详见 [.trae/specs/ai-customer-service/progress.md](.trae/specs/ai-customer-service/progress.md)），规格见 [.trae/specs/ai-customer-service/](.trae/specs/ai-customer-service/)
 
 ## 8. 辅助文档（按需阅读）
 
 Agent 在执行对应类型的任务前，**必须先阅读**下表中的文档：
 
-| 文档 | 内容 | 何时阅读 |
-| --- | --- | --- |
-| [docs/dev-guide.md](docs/dev-guide.md) | 环境要求、常用命令（docker compose / mvn / npm）、演示账号 | 启动服务、执行构建/测试命令、需要登录演示账号时 |
+| 文档                                       | 内容                                                    | 何时阅读                              |
+| ---------------------------------------- | ----------------------------------------------------- | --------------------------------- |
+| [docs/dev-guide.md](docs/dev-guide.md)   | 环境要求、常用命令（docker compose / mvn / npm）、演示账号            | 启动服务、执行构建/测试命令、需要登录演示账号时          |
 | [docs/middleware.md](docs/middleware.md) | 中间件连接信息（MySQL 3307 等）、RocketMQ 踩坑与修复、ES IK 分词器安装与降级策略 | 连接中间件、排障中间件启动失败、开发 search 模块（ES）时 |
 
 新增踩坑记录/约定时优先归入上表文档，避免本文件继续膨胀；本文件只保留高频核心约定与进度。
