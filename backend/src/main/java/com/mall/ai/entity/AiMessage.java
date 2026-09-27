@@ -42,6 +42,12 @@ public class AiMessage implements Serializable {
     /** 工具执行结果 JSON（仅 tool 角色非空） */
     private String toolResult;
 
+    /** 该轮 LLM 消耗的 prompt tokens（仅记在每轮最终 assistant 消息上，LLM 未返回时为 NULL） */
+    private Integer promptTokens;
+
+    /** 该轮 LLM 消耗的 completion tokens（含义同 promptTokens） */
+    private Integer completionTokens;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 }

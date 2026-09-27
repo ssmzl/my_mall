@@ -68,6 +68,12 @@ public class OpenAiClient {
         /** 结束原因：stop / tool_calls 等 */
         private String finishReason;
 
+        /** 本次 LLM 调用消耗的 prompt tokens（服务端未返回 usage 时为 null） */
+        private Integer promptTokens;
+
+        /** 本次 LLM 调用消耗的 completion tokens（服务端未返回 usage 时为 null） */
+        private Integer completionTokens;
+
         void appendContent(String delta) {
             content.append(delta);
         }
@@ -92,6 +98,8 @@ public class OpenAiClient {
         body.put("messages", messages);
         body.put("temperature", llm.getTemperature());
         body.put("stream", true);
+        // 开启 usage 统计：最后一个 chunk（choices 为空数组）会携带 usage 节点
+        body.put("stream_options", Map.of("include_usage", true));
         if (tools != null && !tools.isEmpty()) {
             body.put("tools", tools);
         }
@@ -177,6 +185,19 @@ public class OpenAiClient {
             String msg = node.path("error").path("message").asText("unknown");
             log.error("[AI] LLM 流内错误: {}", msg);
             throw new BizException("AI 服务返回错误，请稍后重试");
+        }
+
+        // usage 统计（stream_options.include_usage=true 时最后一个 chunk 携带，choices 为空数组）
+        JsonNode usage = node.path("usage");
+        if (!usage.isMissingNode() && !usage.isNull()) {
+            int promptTokens = usage.path("prompt_tokens").asInt(0);
+            int completionTokens = usage.path("completion_tokens").asInt(0);
+            if (promptTokens > 0) {
+                result.promptTokens = promptTokens;
+            }
+            if (completionTokens > 0) {
+                result.completionTokens = completionTokens;
+            }
         }
 
         JsonNode choice = node.path("choices").path(0);

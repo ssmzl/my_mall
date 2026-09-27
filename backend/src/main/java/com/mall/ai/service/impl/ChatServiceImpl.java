@@ -87,11 +87,17 @@ public class ChatServiceImpl implements ChatService {
             // 2. LLM 流式请求 + 工具调用循环
             String assistantReply = "";
             int toolRounds = 0;
+            // 该轮累计 token（多次 LLM 调用求和；所有调用均未返回 usage 时保持 null）
+            Integer promptTokens = null;
+            Integer completionTokens = null;
             while (true) {
                 boolean allowTools = toolRounds < MAX_TOOL_ROUNDS;
                 OpenAiClient.ChatResult result = openAiClient.streamChat(messages,
                         allowTools ? toolRegistry.toolSchemas() : null,
                         chunk -> sendEvent(emitter, "message", chunk));
+
+                promptTokens = accumulateTokens(promptTokens, result.getPromptTokens());
+                completionTokens = accumulateTokens(completionTokens, result.getCompletionTokens());
 
                 if (allowTools && "tool_calls".equals(result.getFinishReason())
                         && !result.getToolCalls().isEmpty()) {
@@ -130,7 +136,8 @@ public class ChatServiceImpl implements ChatService {
             // 3. 收尾：写回上下文（FIFO 截断）、异步持久化、done 事件
             roundMessages.add(Map.of("role", "assistant", "content", assistantReply));
             saveContext(userId, roundMessages);
-            aiMessageService.saveRound(userId, message, assistantReply, toolCallsJson, toolResultJson);
+            aiMessageService.saveRound(userId, message, assistantReply, toolCallsJson, toolResultJson,
+                    promptTokens, completionTokens);
             sendEvent(emitter, "done", "[DONE]");
             emitter.complete();
         } catch (Exception e) {
@@ -224,6 +231,14 @@ public class ChatServiceImpl implements ChatService {
         } catch (JsonProcessingException e) {
             throw new BizException("AI 消息序列化失败: " + e.getOriginalMessage());
         }
+    }
+
+    /** token 累计：当前累计值与单次调用用量求和，任一为 null 按未命中处理（全 null 保持 null） */
+    private Integer accumulateTokens(Integer total, Integer delta) {
+        if (delta == null) {
+            return total;
+        }
+        return total == null ? delta : total + delta;
     }
 
     /**

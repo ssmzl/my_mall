@@ -30,15 +30,18 @@ public class AiMessageServiceImpl implements AiMessageService {
     @Async("aiTaskExecutor")
     @Override
     public void saveRound(Long userId, String userMessage, String assistantReply,
-                          String toolCallsJson, String toolResultJson) {
+                          String toolCallsJson, String toolResultJson,
+                          Integer promptTokens, Integer completionTokens) {
         try {
             AiConversation conversation = getOrCreateConversation(userId, userMessage);
-            insertMessage(conversation.getId(), AiMessage.ROLE_USER, userMessage, null, null);
+            insertMessage(conversation.getId(), AiMessage.ROLE_USER, userMessage, null, null, null, null);
             if (toolCallsJson != null) {
-                insertMessage(conversation.getId(), AiMessage.ROLE_ASSISTANT, null, toolCallsJson, null);
-                insertMessage(conversation.getId(), AiMessage.ROLE_TOOL, null, null, toolResultJson);
+                insertMessage(conversation.getId(), AiMessage.ROLE_ASSISTANT, null, toolCallsJson, null, null, null);
+                insertMessage(conversation.getId(), AiMessage.ROLE_TOOL, null, null, toolResultJson, null, null);
             }
-            insertMessage(conversation.getId(), AiMessage.ROLE_ASSISTANT, assistantReply, null, null);
+            // token 用量仅记在该轮最终 assistant 消息上
+            insertMessage(conversation.getId(), AiMessage.ROLE_ASSISTANT, assistantReply, null, null,
+                    promptTokens, completionTokens);
         } catch (Exception e) {
             log.error("[AI] 聊天记录持久化失败, userId={}, message={}, error={}",
                     userId, userMessage, e.getMessage(), e);
@@ -65,13 +68,16 @@ public class AiMessageServiceImpl implements AiMessageService {
     }
 
     private void insertMessage(Long conversationId, String role, String content,
-                               String toolCalls, String toolResult) {
+                               String toolCalls, String toolResult,
+                               Integer promptTokens, Integer completionTokens) {
         AiMessage message = new AiMessage();
         message.setConversationId(conversationId);
         message.setRole(role);
         message.setContent(content);
         message.setToolCalls(toolCalls);
         message.setToolResult(toolResult);
+        message.setPromptTokens(promptTokens);
+        message.setCompletionTokens(completionTokens);
         messageMapper.insert(message);
     }
 }

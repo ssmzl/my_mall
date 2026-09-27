@@ -37,6 +37,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
@@ -148,7 +149,7 @@ class ChatServiceImplTest {
                 .containsExactly("user", "assistant");
         assertThat(saved.get(1)).containsEntry("content", "你好！");
 
-        verify(aiMessageService).saveRound(USER_ID, "你好", "你好！", null, null);
+        verify(aiMessageService).saveRound(USER_ID, "你好", "你好！", null, null, null, null);
     }
 
     @Test
@@ -195,7 +196,7 @@ class ChatServiceImplTest {
 
         // 持久化：toolCallsJson 含工具名、toolResultJson 为工具结果
         verify(aiMessageService).saveRound(eq(USER_ID), eq("有什么手机"), eq("为您找到以下手机"),
-                jsonCaptor.capture(), eq(toolResultJson));
+                jsonCaptor.capture(), eq(toolResultJson), isNull(), isNull());
         assertThat(jsonCaptor.getValue()).contains("queryProduct");
 
         // 上下文写回：user → assistant(tool_calls) → tool → assistant
@@ -240,7 +241,7 @@ class ChatServiceImplTest {
         assertThat(events.get(0).event()).isEqualTo("error");
         assertThat(events.get(0).data()).isEqualTo("AI 服务异常，请稍后重试");
         verify(emitter).complete();
-        verify(aiMessageService, never()).saveRound(anyLong(), anyString(), anyString(), any(), any());
+        verify(aiMessageService, never()).saveRound(anyLong(), anyString(), anyString(), any(), any(), any(), any());
         verify(valueOps, never()).set(anyString(), anyString(), any(Duration.class));
     }
 
@@ -319,7 +320,7 @@ class ChatServiceImplTest {
         chatService.streamChat(USER_ID, "你好", emitter);
 
         verify(emitter).complete();
-        verify(aiMessageService, never()).saveRound(anyLong(), anyString(), anyString(), any(), any());
+        verify(aiMessageService, never()).saveRound(anyLong(), anyString(), anyString(), any(), any(), any(), any());
         verify(valueOps, never()).set(anyString(), anyString(), any(Duration.class));
     }
 
