@@ -17,16 +17,16 @@
   - [x] SubTask 3.2: `AiChatController` POST `/api/ai/chat/stream`（AuthInterceptor 默认拦截需登录，`/ai/**` 未加白名单），创建 `SseEmitter`（超时 120s）后立即返回，编排提交到新增 `aiChatExecutor` 线程池异步执行，避免阻塞 Servlet 线程；限流在 Controller 层 Redis 固定窗口 1 分钟（`mall:ai:limit:{userId}`），超限抛 code=429 的 BizException，`GlobalExceptionHandler#handleBizException` 改为 ResponseEntity 将 429 映射为 HTTP 429、其余保持 200
   - [x] SubTask 3.3: `AiMessageService#saveRound`（`@Async("aiTaskExecutor")`）：每用户一条会话（首次自动创建，title 取用户第一句话前 20 字）；一轮按 user → assistant(tool_calls) → tool → assistant(总结) 顺序落库；失败仅记日志不抛出
 
-- [ ] Task 4: 前端 AI 客服组件
-  - [ ] SubTask 4.1: `frontend/src/api/ai.ts` 定义 SSE 连接封装（`createChatStream(message)` 返回 EventSource，处理 message/tool_call/tool_result/done/error 事件类型）
-  - [ ] SubTask 4.2: `frontend/src/components/AiChatBot.vue`：
-    - 全局浮动按钮（右下角 fixed 定位，品牌色背景）
-    - 点击展开抽屉式聊天窗（宽度 400px，高度 70vh，移动端适配）
-    - 消息列表：用户消息右对齐灰色气泡，AI 消息左对齐白色气泡 + Markdown 渲染（可用轻量库如 `marked`）
-    - 流式输出时 AI 消息区域显示光标闪烁动画
-    - 工具结果卡片：商品卡片（图片 + 名称 + 价格 + 跳转详情链接），订单卡片（订单号 + 状态标签 + 时间）
-    - 输入框 + 发送按钮，Enter 发送，禁用态防止重复提交
-  - [ ] SubTask 4.3: `App.vue` 全局引入 `<AiChatBot />`，确保所有页面可唤起
+- [x] Task 4: 前端 AI 客服组件（`npm run build` 含 vue-tsc 类型检查通过）
+  - [x] SubTask 4.1: `frontend/src/api/ai.ts` 定义 SSE 连接封装——因后端接口为 POST，`EventSource` 仅支持 GET 不可行，按 spec.md 备选方案实现 `fetch + ReadableStream` 手工解析 SSE（event:/data: 行 + 空行分帧 + 多行 data 还原），`createChatStream(message, handlers, signal)` 处理 message/tool_call/tool_result/done/error 五类事件；401/429 等未进入流前的 Result JSON 错误统一转 onError；`parseToolResult` 按 JSON 形状归类商品/订单列表/订单详情卡片载荷
+  - [x] SubTask 4.2: `frontend/src/components/AiChatBot.vue`：
+    - 全局浮动按钮（右下角 fixed 定位，品牌色 `--mall-brand` 背景）
+    - 点击展开抽屉式聊天窗（400px × 70vh，移动端 @media 全宽 80vh）
+    - 消息列表：用户消息右对齐灰色气泡（纯文本），AI 消息左对齐白色气泡 + Markdown 渲染（`marked`，输出经 `DOMPurify` 消毒防 XSS）
+    - 流式输出时 AI 消息区域显示光标闪烁动画；tool_call → tool_result 之间显示「正在查询…」占位
+    - 工具结果卡片：商品卡片（图片 + 名称 + 价格 + 跳转 `/product/{id}` 详情链接），订单列表/详情卡片（订单号 + 状态 el-tag + 金额 + 时间）
+    - 输入框 + 发送按钮，Enter 发送（Shift+Enter 换行），sending/空输入禁用防重复提交；关闭面板时 AbortController 中断进行中的流
+  - [x] SubTask 4.3: `App.vue` 全局引入 `<AiChatBot />`，确保所有页面可唤起；新增依赖 `marked`、`dompurify`
 
 - [ ] Task 5: 测试、联调与文档
   - [ ] SubTask 5.1: `ChatServiceImplTest` 单元测试（Mock `OpenAiClient` 返回普通文本 / tool_calls / 异常，验证上下文 Redis 读写、工具调用链路、SSE emitter 发送事件序列）

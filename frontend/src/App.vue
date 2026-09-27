@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import AppFooter from '@/components/layout/AppFooter.vue'
+import AiChatBot from '@/components/AiChatBot.vue'
 
 // 头部通过 defineExpose 暴露 refreshCartCount；购物车页数量变化后经 cart-changed 事件刷新角标
 const headerRef = ref<InstanceType<typeof AppHeader>>()
@@ -17,6 +18,9 @@ const headerRef = ref<InstanceType<typeof AppHeader>>()
     </el-main>
 
     <AppFooter />
+
+    <!-- 全局 AI 客服（所有页面可唤起） -->
+    <AiChatBot />
   </el-container>
 </template>
 

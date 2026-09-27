@@ -134,7 +134,7 @@ my_mall/
 >    两者更新后才算该任务完成。
 
 - [x] **init-mall-project**：初始全栈商城全部完成并交付（基础设施 / 后端骨架 / 用户 / 商品 / ES 搜索 / 购物车 / 订单 / 秒杀 / 后台管理 / 前端 / 联调，`mvn test` 全绿 163/163、`npm run build` 通过）。详细进度清单与实现要点见 [.trae/specs/init-mall-project/progress.md](.trae/specs/init-mall-project/progress.md)
-- [ ] **ai-customer-service**：AI 智能客服（LLM + Function Calling + SSE 流式）—— Task 1、2、3 完成（建表 + `mall.ai` 配置 + `OpenAiClient` 流式 LLM 客户端 + `AiToolRegistry`/`AiToolExecutor` Function Calling + `ChatService` 上下文/工具编排 + `/api/ai/chat/stream` SSE 接口 + 限流 + 异步持久化，详见 [.trae/specs/ai-customer-service/progress.md](.trae/specs/ai-customer-service/progress.md)），规格见 [.trae/specs/ai-customer-service/](.trae/specs/ai-customer-service/)
+- [ ] **ai-customer-service**：AI 智能客服（LLM + Function Calling + SSE 流式）—— Task 1、2、3、4 完成（建表 + `mall.ai` 配置 + `OpenAiClient` 流式 LLM 客户端 + `AiToolRegistry`/`AiToolExecutor` Function Calling + `ChatService` 上下文/工具编排 + `/api/ai/chat/stream` SSE 接口 + 限流 + 异步持久化 + 前端 `AiChatBot.vue` 聊天组件（fetch 流式 SSE、Markdown 渲染、工具结果卡片），详见 [.trae/specs/ai-customer-service/progress.md](.trae/specs/ai-customer-service/progress.md)），规格见 [.trae/specs/ai-customer-service/](.trae/specs/ai-customer-service/)
 
 ## 8. 辅助文档（按需阅读）
 
