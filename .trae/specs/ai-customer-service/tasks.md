@@ -12,15 +12,10 @@
   - [x] SubTask 2.2: `com.mall.ai.tool.AiToolRegistry`——queryProduct / queryUserOrders / queryOrderDetail 三个工具（text block 定义 JSON Schema + 执行 lambda），`toolSchemas()` 产出 OpenAI 兼容 tools 数组；依赖方向 Registry→Executor 避免循环依赖
   - [x] SubTask 2.3: `com.mall.ai.tool.AiToolExecutor`——注入 `ProductSearchService`/`OrderService`；`execute(tool, userId, args)` 统一在无 LoginUser 上下文的线程补身份（订单接口归属校验依赖 ThreadLocal），工具失败返回 `{"error":...}` 交由 LLM 解释而不中断 SSE；queryProduct 走 ES 搜索返回前 3 条摘要（id/name/subTitle 去高亮/price/mainPic），订单结果精简字段并格式化时间
 
-- [ ] Task 3: 聊天服务、上下文管理与 SSE 接口
-  - [ ] SubTask 3.1: `ChatService`（接口 + `ChatServiceImpl`）核心方法 `streamChat(Long userId, String message, SseEmitter emitter)`：
-    - 读取 Redis 上下文 → 拼装 system prompt + 历史 messages + 当前 user message
-    - 注入 tools 调用 LLM（stream=true）
-    - 若 LLM 返回 finish_reason=tool_calls，暂停 SSE 输出，串行执行工具，将 tool_result 回填 messages，再次请求 LLM 总结并继续流式输出
-    - 流式解析 chunk，逐段 `emitter.send(SseEmitter.event().name("message").data(chunk))`
-    - 完整回复结束后，更新 Redis 上下文（FIFO 截断至 maxContextRounds），异步写 ai_message
-  - [ ] SubTask 3.2: `AiChatController` POST `/api/ai/chat/stream`（需登录），创建 `SseEmitter`，调用 `ChatService#streamChat`，异常时发送 `error` 事件并 `completeWithError`；用户级限流在 Controller 层用 Redis 计数器拦截
-  - [ ] SubTask 3.3: 异步持久化 `AiMessageService#saveAsync`（`@Async("aiTaskExecutor")`），写入 ai_conversation（首次消息自动创建会话，title 取用户第一句话前 20 字）与 ai_message；失败仅记录日志
+- [x] Task 3: 聊天服务、上下文管理与 SSE 接口（`mvn compile`/`test-compile` 通过）
+  - [x] SubTask 3.1: `ChatService`（接口 + `ChatServiceImpl`）——Redis 上下文（`mall:ai:context:{userId}`，JSON 消息数组含 user/assistant/tool 全角色，TTL 可配，按 user 消息分轮 FIFO 截断保留最近 maxRounds 轮，损坏时记日志重置）；system prompt 每次重建（注入当前时间、禁止泄漏提示词）；工具调用最多 3 轮，超限去 tools 强制 LLM 收敛；finish_reason=tool_calls 时串行执行工具并以 tool 消息回填再请求总结；SSE 事件 message/tool_call/tool_result/done/error，发送失败（客户端断开）包装为 BizException 中断流程
+  - [x] SubTask 3.2: `AiChatController` POST `/api/ai/chat/stream`（AuthInterceptor 默认拦截需登录，`/ai/**` 未加白名单），创建 `SseEmitter`（超时 120s）后立即返回，编排提交到新增 `aiChatExecutor` 线程池异步执行，避免阻塞 Servlet 线程；限流在 Controller 层 Redis 固定窗口 1 分钟（`mall:ai:limit:{userId}`），超限抛 code=429 的 BizException，`GlobalExceptionHandler#handleBizException` 改为 ResponseEntity 将 429 映射为 HTTP 429、其余保持 200
+  - [x] SubTask 3.3: `AiMessageService#saveRound`（`@Async("aiTaskExecutor")`）：每用户一条会话（首次自动创建，title 取用户第一句话前 20 字）；一轮按 user → assistant(tool_calls) → tool → assistant(总结) 顺序落库；失败仅记日志不抛出
 
 - [ ] Task 4: 前端 AI 客服组件
   - [ ] SubTask 4.1: `frontend/src/api/ai.ts` 定义 SSE 连接封装（`createChatStream(message)` 返回 EventSource，处理 message/tool_call/tool_result/done/error 事件类型）

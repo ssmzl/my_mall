@@ -2,6 +2,8 @@ package com.mall.common;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -18,11 +20,19 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    /** HTTP 429 Too Many Requests */
+    private static final int CODE_TOO_MANY_REQUESTS = 429;
+
     @ExceptionHandler(BizException.class)
-    public Result<Void> handleBizException(BizException e, HttpServletRequest request) {
+    public ResponseEntity<Result<Void>> handleBizException(BizException e, HttpServletRequest request) {
         log.warn("业务异常: uri={}, method={}, code={}, msg={}",
                 request.getRequestURI(), request.getMethod(), e.getCode(), e.getMessage());
-        return Result.fail(e.getCode(), e.getMessage());
+        Result<Void> body = Result.fail(e.getCode(), e.getMessage());
+        // 限流类业务码映射为 HTTP 429，其余保持 HTTP 200 + Result 约定
+        if (e.getCode() == CODE_TOO_MANY_REQUESTS) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(body);
+        }
+        return ResponseEntity.ok().body(body);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

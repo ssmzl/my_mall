@@ -23,11 +23,24 @@ public class AiConfig {
      */
     @Bean("aiTaskExecutor")
     public Executor aiTaskExecutor(AiConfigProperties props) {
+        return buildExecutor(props, "ai-async-");
+    }
+
+    /**
+     * AI 聊天处理线程池：SSE 流式编排（LLM 请求 + 工具调用）在此执行，
+     * 避免长时间流式输出阻塞 Servlet 线程。
+     */
+    @Bean("aiChatExecutor")
+    public Executor aiChatExecutor(AiConfigProperties props) {
+        return buildExecutor(props, "ai-chat-");
+    }
+
+    private Executor buildExecutor(AiConfigProperties props, String threadNamePrefix) {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setCorePoolSize(props.getAsyncCorePoolSize());
         executor.setMaxPoolSize(props.getAsyncMaxPoolSize());
         executor.setQueueCapacity(props.getAsyncQueueCapacity());
-        executor.setThreadNamePrefix("ai-async-");
+        executor.setThreadNamePrefix(threadNamePrefix);
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         executor.initialize();
         return executor;
