@@ -245,3 +245,49 @@ export interface AdminOrderQuery extends PageQuery {
   orderNo?: string
   status?: OrderStatus
 }
+
+/** 管理端数据看板汇总（销售口径：status IN (1,2,3) 且按 pay_time；AI 轮数：user 消息数；token：prompt+completion 求和） */
+export interface AdminStatsSummary {
+  todaySales: number
+  todayAmount: number
+  totalSales: number
+  totalAmount: number
+  todayAiRounds: number
+  totalAiRounds: number
+  todayAiTokens: number
+  totalAiTokens: number
+}
+
+/** Top10 商品销量榜行（growth 为 null 表示上期销量为 0，前端显示 NEW） */
+export interface AdminTopProduct {
+  productId: number
+  productName: string
+  sales: number
+  amount: number
+  growth: number | null
+}
+
+/** 管理端 AI 配置（api-key 脱敏：仅返回 hasApiKey 标志，不返回明文） */
+export interface AdminAiConfig {
+  enabled: boolean
+  baseUrl: string
+  hasApiKey: boolean
+  model: string
+  temperature: number
+  maxRounds: number
+  ttlMinutes: number
+  rateLimitPerMinute: number
+  updateTime: string | null
+}
+
+/** 修改 AI 配置参数（apiKey 留空/不传表示保留原值） */
+export interface AdminAiConfigPayload {
+  enabled: boolean
+  baseUrl: string
+  apiKey?: string
+  model: string
+  temperature: number
+  maxRounds: number
+  ttlMinutes: number
+  rateLimitPerMinute: number
+}

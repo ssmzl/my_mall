@@ -1,6 +1,10 @@
 import { del, get, post, put } from './request'
 import type {
+  AdminAiConfig,
+  AdminAiConfigPayload,
   AdminOrderQuery,
+  AdminStatsSummary,
+  AdminTopProduct,
   Category,
   Order,
   PageData,
@@ -122,4 +126,28 @@ export function adminDeleteSeckillProduct(id: number): Promise<void> {
 /** 管理端分类树（含禁用分类） */
 export function adminCategoryTree(): Promise<Category[]> {
   return get<Category[]>('/admin/category/tree')
+}
+
+/* ---------- 数据看板 ---------- */
+
+/** 汇总统计（今日/累计销量与销售额、AI 对话轮数与 token 消耗） */
+export function adminStatsSummary(): Promise<AdminStatsSummary> {
+  return get<AdminStatsSummary>('/admin/stats/summary')
+}
+
+/** Top10 商品销量榜（range=today|7d|30d，含对比上一同期的销量增幅） */
+export function adminTopProducts(range: 'today' | '7d' | '30d'): Promise<AdminTopProduct[]> {
+  return get<AdminTopProduct[]>('/admin/stats/top-products', { range })
+}
+
+/* ---------- AI 配置 ---------- */
+
+/** 查询 AI 配置（api-key 脱敏：仅返回 hasApiKey 标志，不返回明文） */
+export function adminGetAiConfig(): Promise<AdminAiConfig> {
+  return get<AdminAiConfig>('/admin/ai/config')
+}
+
+/** 保存 AI 配置（apiKey 留空表示保留原值；保存后即时生效无需重启） */
+export function adminUpdateAiConfig(data: AdminAiConfigPayload): Promise<void> {
+  return put<void>('/admin/ai/config', data)
 }

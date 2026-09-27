@@ -5,7 +5,7 @@
 
 ## 总览
 
-- 状态：**进行中（Task 1-5 已完成，Task 6、7 待做）**
+- 状态：**进行中（Task 1-6 已完成，Task 7 待做）**
 - 范围：项目收尾三件事
   1. 分类树 Redis 缓存（C 端 `mall:cache:category:tree:c` / 管理端 `mall:cache:category:tree:admin`，TTL 1h，空树 60s 占位防穿透；管理端增删改成功后删除两个 key）
   2. 管理端 AI 配置（新增 `ai_config` 单行配置表，启动加载覆盖 `AiConfigProperties`，`GET/PUT /admin/ai/config` 保存后原地更新单例即时生效，api-key 脱敏、留空保留原值）
@@ -24,5 +24,6 @@
 - [x] Task 5 管理端统计接口：AdminStatsMapper XML 聚合 + Service 组装 VO + Controller（依赖 Task 1）
   - 已完成（2026-09-27）：`AdminStatsMapper`（接口 + `resources/mapper/AdminStatsMapper.xml`）4 个聚合查询：订单销量/销售额（`oms_order.status IN (1,2,3)`，`pay_time` 左闭右开区间，start/end 为 null 即累计口径）、AI 轮数（`ai_message.role='user'`）、token 求和（NULL 按 0）、Top10（GROUP BY product_id，商品名取最近下单快照子查询，避免 GROUP_CONCAT 逗号截断）；`AdminStatsService(Impl)` 组装 `AdminStatsSummaryVO` / `AdminTopProductVO`，增幅 =（本期-上期)/上期*100 保留 1 位小数，上期为 0 返回 null（NEW）；时间窗口按自然日对齐（7d = 含今天共 7 个自然日，同期前移等长周期）；`AdminStatsController`：`GET /admin/stats/summary`、`GET /admin/stats/top-products?range=today|7d|30d`，range 非法抛 `BizException`
   - 验证：`mvn test` 全绿 189/189（0 失败，13 跳过为需中间件的集成测试）
-- [ ] Task 6 前端：AdminDashboardView.vue 数据看板 + AdminAiConfigView.vue AI 配置页 + api/路由/菜单（依赖 Task 4、5）
+- [x] Task 6 前端：AdminDashboardView.vue 数据看板 + AdminAiConfigView.vue AI 配置页 + api/路由/菜单（依赖 Task 4、5）
+  - 已完成（2026-09-28）：`src/api/types.ts` 新增 `AdminStatsSummary` / `AdminTopProduct`（growth 可 null）/ `AdminAiConfig`（hasApiKey 脱敏）/ `AdminAiConfigPayload`（apiKey 可选），`src/api/admin.ts` 新增 `adminStatsSummary` / `adminTopProducts(range)` / `adminGetAiConfig` / `adminUpdateAiConfig`；新增 `AdminDashboardView.vue`（4 张汇总卡片今日/累计两行 + Top10 el-table 配 el-tabs 切 range，增幅 tag 正绿负红、null 显示 NEW，纯 Element Plus 无新依赖）；新增 `AdminAiConfigView.vue`（enabled 开关 + 各数值 el-input-number 校验 + api-key 密码框留空保留原值，header 显示 hasApiKey tag 与 updateTime，保存后重载）；路由新增 `admin-dashboard` / `admin-ai-config`，`/admin` 默认重定向改为数据看板，`AdminLayout.vue` 菜单加「数据看板」「AI 配置」；验证：`npm run build`（vue-tsc + vite）通过
 - [ ] Task 7 测试与收尾：单测 + `mvn test` 全绿 + `npm run build` 通过 + 文档同步（依赖全部）

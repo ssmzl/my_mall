@@ -29,11 +29,15 @@
     - 实现要点：时间窗口按自然日对齐（7d = 含今天共 7 个自然日），同期 = 本期窗口前移等长周期；增幅保留 1 位小数 HALF_UP
   - [x] 5.3 `AdminStatsController`：`GET /admin/stats/summary`、`GET /admin/stats/top-products?range=today|7d|30d`（range 非法抛 BizException），返回 `Result<T>`
   - 验证：`mvn test` 全绿 189/189（0 失败）
-- [ ] Task 6: 前端管理端页面（依赖 Task 4、5）
-  - [ ] 6.1 `src/api/admin.ts` + `types.ts`：新增 stats / aiConfig 接口与类型
-  - [ ] 6.2 新增 `views/admin/AdminDashboardView.vue`：汇总卡片（今日/累计销量、销售额、AI 轮数、token）+ Top10 表格（el-table，range 切换 Tab，增幅 tag：正绿负红、null 显示 NEW）；纯 Element Plus，不新增依赖
-  - [ ] 6.3 新增 `views/admin/AdminAiConfigView.vue`：表单（enabled 开关、base-url、model、temperature、max-rounds、ttl-minutes、rate-limit、api-key 密码框留空不改），保存提示成功
-  - [ ] 6.4 路由 + `AdminLayout.vue` 菜单：新增 dashboard / ai-config 页面；`/admin` 默认重定向改为数据看板
+- [x] Task 6: 前端管理端页面（依赖 Task 4、5）
+  - [x] 6.1 `src/api/admin.ts` + `types.ts`：新增 stats / aiConfig 接口与类型
+    - 实现要点：`AdminStatsSummary` / `AdminTopProduct`（growth 可 null）/ `AdminAiConfig`（hasApiKey 脱敏）/ `AdminAiConfigPayload`（apiKey 可选，留空不传）；`adminStatsSummary` / `adminTopProducts(range)` / `adminGetAiConfig` / `adminUpdateAiConfig`
+  - [x] 6.2 新增 `views/admin/AdminDashboardView.vue`：汇总卡片（今日/累计销量、销售额、AI 轮数、token）+ Top10 表格（el-table，range 切换 Tab，增幅 tag：正绿负红、null 显示 NEW）；纯 Element Plus，不新增依赖
+    - 实现要点：4 张 el-card（每张含今日/累计两行）+ el-tabs 切 range 重新拉取 Top10；增幅正数带 `+` 前缀
+  - [x] 6.3 新增 `views/admin/AdminAiConfigView.vue`：表单（enabled 开关、base-url、model、temperature、max-rounds、ttl-minutes、rate-limit、api-key 密码框留空不改），保存提示成功
+    - 实现要点：api-key 用 `type="password" show-password`，placeholder 按 hasApiKey 提示「留空表示保留原值」；提交时空白转 undefined；header 显示 hasApiKey tag 与 updateTime；保存后重新 load 校验脱敏状态
+  - [x] 6.4 路由 + `AdminLayout.vue` 菜单：新增 dashboard / ai-config 页面；`/admin` 默认重定向改为数据看板
+    - 实现要点：路由 `admin-dashboard` / `admin-ai-config`，`''` redirect 指向 dashboard；菜单新增「数据看板」（DataLine 图标）与「AI 配置」（Setting 图标）
 - [ ] Task 7: 测试与收尾（依赖全部）
   - [ ] 7.1 后端单测：缓存驱逐逻辑、AI 配置脱敏与「留空保留」逻辑、统计增幅计算（含上期为 0 边界）、token 累计逻辑（Mockito，风格对齐现有测试）
   - [ ] 7.2 `mvn test` 全绿 + 前端 `npm run build` 通过
