@@ -11,3 +11,4 @@ node_modules/
 # Logs / temp
 *.log
 .DS_Store
+__pycache__/

@@ -30,6 +30,8 @@ docker run --rm --user root \
 docker compose -f deploy/docker-compose.yml up -d
 ```
 
+- **Proxy 全新部署崩溃循环（2026-09-28）**：`brokerIP1=127.0.0.1` 的代价不止「不可用」——旧卷里系统 topic 已存在时 Proxy 能勉强运行，但**全新卷首次部署时** Proxy 启动要创建 `DefaultHeartBeatSyncerTopic`，经 NS 拿到 127.0.0.1:10911 连到自己，创建失败直接退出并无限重启（`ProxyException: create system broadcast topic ... failed`）。项目客户端走 9876 remoting 协议不用 Proxy，已确认**保留不管**（不影响任何功能）；若要消除噪音可从 compose 删除 rocketmq-proxy 服务。
+
 ## Elasticsearch
 
 ### IK 分词器
