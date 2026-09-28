@@ -85,7 +85,7 @@ public class AdminAiConfigServiceImpl implements AdminAiConfigService {
     /** 按配置表行组装 VO（api-key 脱敏，仅返回 hasApiKey） */
     private AdminAiConfigVO fromRow(AiConfigEntity row) {
         AdminAiConfigVO vo = new AdminAiConfigVO();
-        vo.setEnabled(row.isEnabled());
+        vo.setEnabled(Integer.valueOf(1).equals(row.getEnabled()));
         vo.setBaseUrl(row.getBaseUrl());
         vo.setHasApiKey(row.getApiKey() != null && !row.getApiKey().isBlank());
         vo.setModel(row.getModel());

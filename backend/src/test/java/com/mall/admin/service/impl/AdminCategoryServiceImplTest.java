@@ -2,7 +2,6 @@ package com.mall.admin.service.impl;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mall.admin.dto.AdminCategoryAddDTO;
 import com.mall.admin.dto.AdminCategoryUpdateDTO;
 import com.mall.common.BizException;
@@ -17,8 +16,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
 
 import java.util.List;
 
@@ -30,7 +27,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * 管理端分类维护单元测试：层级校验、删除保护、管理端树（含禁用分类）。
+ * 管理端分类维护单元测试：层级校验、删除保护、管理端树（含禁用分类）、
+ * 树缓存读命中与增删改成功/失败后的驱逐行为。
  */
 @ExtendWith(MockitoExtension.class)
 class AdminCategoryServiceImplTest {
@@ -42,10 +40,7 @@ class AdminCategoryServiceImplTest {
     private ProductMapper productMapper;
 
     @Mock
-    private StringRedisTemplate stringRedisTemplate;
-
-    @Mock
-    private ValueOperations<String, String> valueOperations;
+    private CategoryTreeCache categoryTreeCache;
 
     private AdminCategoryServiceImpl service;
 
@@ -54,10 +49,8 @@ class AdminCategoryServiceImplTest {
         // lambda 条件依赖 TableInfo 元数据，单测中手动初始化
         MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
         TableInfoHelper.initTableInfo(assistant, PmsCategory.class);
-        // 真实 CategoryTreeCache + mock Redis：tree() 缓存未命中回源，增删改后驱逐走 delete（mock 默认返回不影响断言）
-        service = new AdminCategoryServiceImpl(categoryMapper, productMapper,
-                new CategoryTreeCache(stringRedisTemplate, new ObjectMapper().findAndRegisterModules()));
-        org.mockito.Mockito.lenient().when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+        // mock CategoryTreeCache：读命中/回源与驱逐行为直接 verify 组件调用，Redis 细节由 CategoryTreeCacheTest 覆盖
+        service = new AdminCategoryServiceImpl(categoryMapper, productMapper, categoryTreeCache);
     }
 
     @Test
@@ -183,6 +176,7 @@ class AdminCategoryServiceImplTest {
         PmsCategory root = category(1L, 0L, 1);
         root.setStatus(0); // 禁用的一级分类也应出现在管理端树中
         PmsCategory child = category(2L, 1L, 2);
+        when(categoryTreeCache.get(CategoryTreeCache.KEY_ADMIN)).thenReturn(null);
         when(categoryMapper.selectList(any())).thenReturn(List.of(root, child));
 
         List<PmsCategory> tree = service.tree();
@@ -190,6 +184,71 @@ class AdminCategoryServiceImplTest {
         assertThat(tree).hasSize(1);
         assertThat(tree.get(0).getId()).isEqualTo(1L);
         assertThat(tree.get(0).getChildren()).extracting(PmsCategory::getId).containsExactly(2L);
+        // 回源后写回管理端缓存 key
+        verify(categoryTreeCache).put(CategoryTreeCache.KEY_ADMIN, tree);
+    }
+
+    @Test
+    void treeShouldReturnCachedTreeWithoutQueryingDb() {
+        List<PmsCategory> cached = List.of(category(1L, 0L, 1));
+        when(categoryTreeCache.get(CategoryTreeCache.KEY_ADMIN)).thenReturn(cached);
+
+        List<PmsCategory> tree = service.tree();
+
+        assertThat(tree).isSameAs(cached);
+        verify(categoryMapper, never()).selectList(any());
+        verify(categoryTreeCache, never()).put(any(), any());
+    }
+
+    @Test
+    void addSuccessShouldEvictBothTreeCaches() {
+        AdminCategoryAddDTO dto = new AdminCategoryAddDTO();
+        dto.setParentId(0L);
+        dto.setName("数码");
+
+        service.add(dto);
+
+        verify(categoryTreeCache).evictAll();
+    }
+
+    @Test
+    void updateSuccessShouldEvictBothTreeCaches() {
+        when(categoryMapper.selectById(11L)).thenReturn(category(11L, 0L, 1));
+        AdminCategoryUpdateDTO dto = new AdminCategoryUpdateDTO();
+        dto.setName("数码改");
+
+        service.update(11L, dto);
+
+        verify(categoryTreeCache).evictAll();
+    }
+
+    @Test
+    void deleteSuccessShouldEvictBothTreeCaches() {
+        when(categoryMapper.selectById(13L)).thenReturn(category(13L, 11L, 2));
+        when(categoryMapper.selectCount(any())).thenReturn(0L);
+        when(productMapper.selectCount(any())).thenReturn(0L);
+
+        service.delete(13L);
+
+        verify(categoryMapper).deleteById(13L);
+        verify(categoryTreeCache).evictAll();
+    }
+
+    @Test
+    void failedOperationsShouldNotEvictTreeCaches() {
+        // 新增挂到二级分类下（非法层级）→ 失败
+        when(categoryMapper.selectById(12L)).thenReturn(category(12L, 11L, 2));
+        AdminCategoryAddDTO addDto = new AdminCategoryAddDTO();
+        addDto.setParentId(12L);
+        addDto.setName("三级分类");
+        assertThatThrownBy(() -> service.add(addDto)).isInstanceOf(BizException.class);
+
+        // 删除不存在的分类 → 失败
+        when(categoryMapper.selectById(404L)).thenReturn(null);
+        assertThatThrownBy(() -> service.delete(404L)).isInstanceOf(BizException.class);
+
+        // 失败路径不允许驱逐缓存（否则并发读会回写旧数据，白驱逐一次）
+        verify(categoryTreeCache, never()).evictAll();
     }
 
     @Test

@@ -38,10 +38,12 @@
     - 实现要点：api-key 用 `type="password" show-password`，placeholder 按 hasApiKey 提示「留空表示保留原值」；提交时空白转 undefined；header 显示 hasApiKey tag 与 updateTime；保存后重新 load 校验脱敏状态
   - [x] 6.4 路由 + `AdminLayout.vue` 菜单：新增 dashboard / ai-config 页面；`/admin` 默认重定向改为数据看板
     - 实现要点：路由 `admin-dashboard` / `admin-ai-config`，`''` redirect 指向 dashboard；菜单新增「数据看板」（DataLine 图标）与「AI 配置」（Setting 图标）
-- [ ] Task 7: 测试与收尾（依赖全部）
-  - [ ] 7.1 后端单测：缓存驱逐逻辑、AI 配置脱敏与「留空保留」逻辑、统计增幅计算（含上期为 0 边界）、token 累计逻辑（Mockito，风格对齐现有测试）
-  - [ ] 7.2 `mvn test` 全绿 + 前端 `npm run build` 通过
-  - [ ] 7.3 更新本文件勾选、progress.md、AGENTS.md 第 7 节；新约定（缓存 key、统计口径）补入 project 记忆/AGENTS 第 5.2 节
+- [x] Task 7: 测试与收尾（依赖全部）
+  - [x] 7.1 后端单测：缓存驱逐逻辑、AI 配置脱敏与「留空保留」逻辑、统计增幅计算（含上期为 0 边界）、token 累计逻辑（Mockito，风格对齐现有测试）
+    - 实现要点：`AdminCategoryServiceImplTest` 改用 mock `CategoryTreeCache`，新增 5 个用例（读命中不查库/回源写回并 put、增删改成功驱逐 evictAll、失败路径不驱逐）；新增 `AdminAiConfigServiceImplTest` 8 用例（get 表无行回退 yml/表行脱敏——反射断言 VO 无 apiKey 字段、留空保留表行值与 yml 值、新 key trim、insert/updateById 分支、保存后原地覆盖 props 即时生效）；新增 `AdminStatsServiceImplTest` 4 用例（summary 今日/累计窗口与 VO 组装、7d 窗口自然日对齐且先查上期、增幅正/负/四舍五入 -66.7、上期销量 0 与无上期记录 → null、非法 range 拒绝）；`ChatServiceImplTest` 新增 2 个 token 用例（多次 LLM 调用 usage 求和 130/70、缺失 usage 不影响已有累计，chatResult 辅助方法支持反射注入 prompt/completionTokens）
+  - [x] 7.2 `mvn test` 全绿 + 前端 `npm run build` 通过
+    - 验证：`mvn test` 208/208 全绿（0 失败 0 错误 0 跳过）；`npm run build`（vue-tsc + vite）通过
+  - [x] 7.3 更新本文件勾选、progress.md、AGENTS.md 第 7 节；新约定（缓存 key、统计口径）补入 project 记忆/AGENTS 第 5.2 节
 
 # Task Dependencies
 - Task 3 / 4 / 5 依赖 Task 1

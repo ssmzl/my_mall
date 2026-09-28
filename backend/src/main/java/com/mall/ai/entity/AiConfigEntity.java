@@ -46,8 +46,4 @@ public class AiConfigEntity implements Serializable {
     private Integer rateLimitPerMinute;
 
     private LocalDateTime updateTime;
-
-    public boolean isEnabled() {
-        return enabled != null && enabled == 1;
-    }
 }

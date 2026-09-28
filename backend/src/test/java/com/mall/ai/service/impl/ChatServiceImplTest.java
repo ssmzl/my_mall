@@ -324,6 +324,47 @@ class ChatServiceImplTest {
         verify(valueOps, never()).set(anyString(), anyString(), any(Duration.class));
     }
 
+    @Test
+    void 多次LLM调用的usage按轮累计求和() throws Exception {
+        when(stringRedisTemplate.opsForValue()).thenReturn(valueOps);
+        when(valueOps.get(CONTEXT_KEY)).thenReturn(null);
+        AtomicInteger calls = new AtomicInteger();
+        when(openAiClient.streamChat(anyList(), any(), any())).thenAnswer(inv -> {
+            // 第 1 次返回 tool_calls（usage: 100/50），第 2 次总结（usage: 30/20）
+            return calls.incrementAndGet() == 1
+                    ? chatResult("", "tool_calls",
+                            List.of(new OpenAiClient.ToolCall("call-1", "queryProduct", "{}")), 100, 50)
+                    : chatResult("总结", "stop", null, 30, 20);
+        });
+        when(toolExecutor.execute(any(), eq(USER_ID), any())).thenReturn("{}");
+
+        chatService.streamChat(USER_ID, "查手机", emitter);
+
+        // 多次 LLM 调用的 usage 求和后随该轮最终 assistant 消息落库
+        verify(aiMessageService).saveRound(eq(USER_ID), eq("查手机"), eq("总结"),
+                any(), any(), eq(130), eq(70));
+    }
+
+    @Test
+    void usage缺失的调用不影响已有累计() throws Exception {
+        when(stringRedisTemplate.opsForValue()).thenReturn(valueOps);
+        when(valueOps.get(CONTEXT_KEY)).thenReturn(null);
+        AtomicInteger calls = new AtomicInteger();
+        when(openAiClient.streamChat(anyList(), any(), any())).thenAnswer(inv -> {
+            // 第 1 次无 usage，第 2 次有 → 取第 2 次值；全无 usage 时保持 null（由「普通文本流式回复」用例覆盖）
+            return calls.incrementAndGet() == 1
+                    ? chatResult("", "tool_calls",
+                            List.of(new OpenAiClient.ToolCall("call-1", "queryProduct", "{}")), null, null)
+                    : chatResult("总结", "stop", null, 30, 20);
+        });
+        when(toolExecutor.execute(any(), eq(USER_ID), any())).thenReturn("{}");
+
+        chatService.streamChat(USER_ID, "查手机", emitter);
+
+        verify(aiMessageService).saveRound(eq(USER_ID), eq("查手机"), eq("总结"),
+                any(), any(), eq(30), eq(20));
+    }
+
     // ---------- 辅助 ----------
 
     /** 断言时把捕获到的 builder 解析为事件（保持发送顺序） */
@@ -341,6 +382,13 @@ class ChatServiceImplTest {
      */
     private static OpenAiClient.ChatResult chatResult(String content, String finishReason,
                                                       List<OpenAiClient.ToolCall> toolCalls) {
+        return chatResult(content, finishReason, toolCalls, null, null);
+    }
+
+    /** 同上，可附带 usage token（服务端 include_usage 返回时才非空） */
+    private static OpenAiClient.ChatResult chatResult(String content, String finishReason,
+                                                      List<OpenAiClient.ToolCall> toolCalls,
+                                                      Integer promptTokens, Integer completionTokens) {
         try {
             OpenAiClient.ChatResult result = new OpenAiClient.ChatResult();
             var append = OpenAiClient.ChatResult.class.getDeclaredMethod("appendContent", String.class);
@@ -349,6 +397,16 @@ class ChatServiceImplTest {
             var finish = OpenAiClient.ChatResult.class.getDeclaredField("finishReason");
             finish.setAccessible(true);
             finish.set(result, finishReason);
+            if (promptTokens != null) {
+                var prompt = OpenAiClient.ChatResult.class.getDeclaredField("promptTokens");
+                prompt.setAccessible(true);
+                prompt.set(result, promptTokens);
+            }
+            if (completionTokens != null) {
+                var completion = OpenAiClient.ChatResult.class.getDeclaredField("completionTokens");
+                completion.setAccessible(true);
+                completion.set(result, completionTokens);
+            }
             if (toolCalls != null) {
                 var calls = OpenAiClient.ChatResult.class.getDeclaredField("toolCalls");
                 calls.setAccessible(true);

@@ -5,7 +5,7 @@
 
 ## 总览
 
-- 状态：**进行中（Task 1-6 已完成，Task 7 待做）**
+- 状态：**已完成（Task 1-7 全部交付，2026-09-28）**
 - 范围：项目收尾三件事
   1. 分类树 Redis 缓存（C 端 `mall:cache:category:tree:c` / 管理端 `mall:cache:category:tree:admin`，TTL 1h，空树 60s 占位防穿透；管理端增删改成功后删除两个 key）
   2. 管理端 AI 配置（新增 `ai_config` 单行配置表，启动加载覆盖 `AiConfigProperties`，`GET/PUT /admin/ai/config` 保存后原地更新单例即时生效，api-key 脱敏、留空保留原值）
@@ -26,4 +26,6 @@
   - 验证：`mvn test` 全绿 189/189（0 失败，13 跳过为需中间件的集成测试）
 - [x] Task 6 前端：AdminDashboardView.vue 数据看板 + AdminAiConfigView.vue AI 配置页 + api/路由/菜单（依赖 Task 4、5）
   - 已完成（2026-09-28）：`src/api/types.ts` 新增 `AdminStatsSummary` / `AdminTopProduct`（growth 可 null）/ `AdminAiConfig`（hasApiKey 脱敏）/ `AdminAiConfigPayload`（apiKey 可选），`src/api/admin.ts` 新增 `adminStatsSummary` / `adminTopProducts(range)` / `adminGetAiConfig` / `adminUpdateAiConfig`；新增 `AdminDashboardView.vue`（4 张汇总卡片今日/累计两行 + Top10 el-table 配 el-tabs 切 range，增幅 tag 正绿负红、null 显示 NEW，纯 Element Plus 无新依赖）；新增 `AdminAiConfigView.vue`（enabled 开关 + 各数值 el-input-number 校验 + api-key 密码框留空保留原值，header 显示 hasApiKey tag 与 updateTime，保存后重载）；路由新增 `admin-dashboard` / `admin-ai-config`，`/admin` 默认重定向改为数据看板，`AdminLayout.vue` 菜单加「数据看板」「AI 配置」；验证：`npm run build`（vue-tsc + vite）通过
-- [ ] Task 7 测试与收尾：单测 + `mvn test` 全绿 + `npm run build` 通过 + 文档同步（依赖全部）
+- [x] Task 7 测试与收尾：单测 + `mvn test` 全绿 + `npm run build` 通过 + 文档同步（依赖全部）
+  - 已完成（2026-09-28）：`AdminCategoryServiceImplTest` 改用 mock `CategoryTreeCache` 并新增 5 用例（读命中不查库 / 回源写回并 put 到 KEY_ADMIN、增删改成功驱逐 evictAll、失败路径不驱逐）；新增 `AdminAiConfigServiceImplTest` 8 用例（get 表无行回退 yml、api-key 空白 hasApiKey=false、表行脱敏且反射断言 VO 无 apiKey 字段、留空保留表行值 / yml 值、新 key trim、insert/updateById 分支、保存后经 `AiConfigApplier.apply` 原地覆盖 props 即时生效）；新增 `AdminStatsServiceImplTest` 4 用例（summary 今日/累计窗口 [自然日 00:00, 次日 00:00) 与 null 累计口径、7d 窗口含今天 7 个自然日且先查上期 [start-7d, start)、增幅正 50.0/负 -50.0/四舍五入 -66.7、上期销量 0 与无上期记录 → null、非法/缺省 range 抛 BizException）；`ChatServiceImplTest` 新增 2 个 token 累计用例（两次 LLM 调用 usage 求和 130/70、缺失 usage 的调用不影响已有累计；chatResult 辅助方法支持反射注入 prompt/completionTokens）
+  - 验证：`mvn test` 208/208 全绿（0 失败 0 错误 0 跳过）、`npm run build`（vue-tsc + vite）通过；新约定（缓存 key、统计口径、api-key 脱敏与留空保留）已补入 AGENTS.md 第 5.2 节与 project 记忆

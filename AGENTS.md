@@ -63,7 +63,7 @@ my_mall/
 ├── .trae/specs/             # 功能规格（每个子目录含 spec.md / tasks.md / checklist.md / progress.md）
 │   ├── init-mall-project/   #   初始全栈商城（已交付，进度见 progress.md）
 │   ├── ai-customer-service/ #   AI 智能客服（已交付，进度见 progress.md）
-│   └── add-cache-ai-config-stats/ #   项目收尾：分类树缓存 + 管理端 AI 配置 + 数据看板（规划中）
+│   └── add-cache-ai-config-stats/ #   项目收尾：分类树缓存 + 管理端 AI 配置 + 数据看板（已交付，进度见 progress.md）
 ├── docs/                    # 辅助文档（见第 8 节，Agent 按需阅读）
 │   ├── dev-guide.md         #   开发环境、常用命令、演示账号
 │   └── middleware.md        #   中间件连接信息与踩坑要点
@@ -126,6 +126,9 @@ my_mall/
   - 工具结果必须精简字段（商品 3 条、订单每页 5 条、时间去掉秒），控制多轮上下文体积。
   - LLM api-key 一律走环境变量 `MALL_AI_API_KEY`，严禁硬编码进代码或提交到仓库；`enabled=false` 时接口需返回友好提示而非报错。
   - 前端流式增量必须改「从响应式数组取回的代理引用」，直接改 push 前的原始对象不会触发 Vue 渲染（流式文本会憋到流结束才显示）。
+- **分类树缓存（`CategoryTreeCache`）**：C 端 key `mall:cache:category:tree:c`、管理端 key `mall:cache:category:tree:admin`，TTL 1h，空树写 `"[]"` 占位 60s 防穿透；管理端分类增删改**成功后**才 `evictAll()` 驱逐两个 key，失败路径不得驱逐；当前无事务直接删，将来加事务必须改为 afterCommit 删除。
+- **管理端统计口径**：销量/销售额仅统计 `oms_order.status IN (1,2,3)`、按 `pay_time` 左闭右开 `[start, end)` 过滤（start/end 为 null 即累计口径）；AI 轮数 = `ai_message.role='user'` 消息数；增幅 =（本期-上期)/上期×100 保留 1 位小数 HALF_UP，**上期销量为 0 或无记录时返回 null**（前端显示 NEW）；时间窗口按自然日对齐（7d = 含今天共 7 个自然日，上期 = 本期窗口整体前移等长周期）。
+- **管理端 AI 配置（ai_config）**：`GET /admin/ai/config` 只返回 `hasApiKey` 布尔标志，不回传明文 api-key；`PUT` 时 api-key 留空表示保留原值（表行已有值优先、表无行取 yml 值）；保存 upsert `ai_config`（id=1）后经 `AiConfigApplier.apply` 原地更新 `AiConfigProperties` 单例即时生效，无需重启。
 
 ## 6. Git 约定
 
@@ -142,7 +145,7 @@ my_mall/
 
 - [x] **init-mall-project**：初始全栈商城全部完成并交付（基础设施 / 后端骨架 / 用户 / 商品 / ES 搜索 / 购物车 / 订单 / 秒杀 / 后台管理 / 前端 / 联调，`mvn test` 全绿 163/163、`npm run build` 通过）。详细进度清单与实现要点见 [.trae/specs/init-mall-project/progress.md](.trae/specs/init-mall-project/progress.md)
 - [x] **ai-customer-service**：AI 智能客服（LLM + Function Calling + SSE 流式）全部完成并交付（建表 + `mall.ai` 配置 + `OpenAiClient` 流式 LLM 客户端 + `AiToolRegistry`/`AiToolExecutor` Function Calling + `ChatService` 上下文/工具编排 + `/api/ai/chat/stream` SSE 接口 + 限流 + 异步持久化 + 前端 `AiChatBot.vue` 聊天组件 + 前后端单测 + 冒烟联调，`mvn test` 全绿 182/182、前端 Vitest 12/12、`npm run build` 通过），详见 [.trae/specs/ai-customer-service/progress.md](.trae/specs/ai-customer-service/progress.md)，规格见 [.trae/specs/ai-customer-service/](.trae/specs/ai-customer-service/)
-- [ ] **add-cache-ai-config-stats**：项目收尾——分类树 Redis 缓存（管理端增删改驱逐）、管理端 AI 配置（`ai_config` 表 + 即时生效 + api-key 脱敏）、管理端数据看板（销量/销售额/AI 对话轮数/AI token/Top10 销量变化，含 `ai_message` token 采集）。**Task 1-6 已完成**（DB 变更、分类树缓存、AI token 采集、`GET/PUT /admin/ai/config`、`/admin/stats/summary` 与 `/admin/stats/top-products` 后端接口，`mvn test` 全绿 189/189；前端数据看板 `AdminDashboardView.vue` + AI 配置页 `AdminAiConfigView.vue` + api/路由/菜单，`npm run build` 通过）；Task 7（收尾）待做。规格见 [.trae/specs/add-cache-ai-config-stats/](.trae/specs/add-cache-ai-config-stats/)，进度见 [.trae/specs/add-cache-ai-config-stats/progress.md](.trae/specs/add-cache-ai-config-stats/progress.md)
+- [x] **add-cache-ai-config-stats**：项目收尾全部完成并交付（分类树 Redis 缓存 C 端/管理端双 key + 管理端增删改驱逐、`ai_config` 表 + 启动加载覆盖 + `GET/PUT /admin/ai/config` 即时生效与 api-key 脱敏/留空保留、AI token 采集落库 `ai_message`、`/admin/stats/summary` 与 `/admin/stats/top-products` 统计接口、前端 `AdminDashboardView.vue` + `AdminAiConfigView.vue` + api/路由/菜单、收尾单测——缓存驱逐/配置脱敏与留空保留/统计增幅含上期 0 边界/token 累计，`mvn test` 全绿 208/208、`npm run build` 通过）。规格见 [.trae/specs/add-cache-ai-config-stats/](.trae/specs/add-cache-ai-config-stats/)，进度与实现要点见 [.trae/specs/add-cache-ai-config-stats/progress.md](.trae/specs/add-cache-ai-config-stats/progress.md)
 
 ## 8. 辅助文档（按需阅读）
 
