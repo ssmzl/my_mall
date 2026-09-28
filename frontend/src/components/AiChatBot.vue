@@ -49,7 +49,50 @@ const sending = ref(false)
 const queryingLabel = ref('')
 const messages = ref<ChatMsg[]>([])
 const listRef = ref<HTMLElement>()
+const panelRef = ref<HTMLElement>()
+/** 用户拖拽后的面板尺寸（null 时走 CSS 默认值，移动端全屏媒体查询不受影响） */
+const panelW = ref<number | null>(null)
+const panelH = ref<number | null>(null)
 let abortController: AbortController | null = null
+
+/** 拖拽方向：e/s/w/n 东南西北，组合如 nw = 左上角 */
+type ResizeDir = 'se' | 'sw' | 'ne' | 'nw' | 'e' | 's' | 'w' | 'n'
+
+/** 边缘/角手柄拖拽调整聊天窗大小（面板锚定右下角，拖 w/n 方向时宽高向外扩展） */
+function onResizeStart(e: PointerEvent, dir: ResizeDir): void {
+  e.preventDefault()
+  const startX = e.clientX
+  const startY = e.clientY
+  const startW = panelRef.value?.offsetWidth ?? 400
+  const startH = panelRef.value?.offsetHeight ?? 480
+  const MIN_W = 320
+  const MIN_H = 360
+  const MAX_W = window.innerWidth - 40
+  const MAX_H = window.innerHeight - 60
+  const clamp = (v: number, min: number, max: number): number => Math.min(Math.max(v, min), max)
+  const onMove = (ev: PointerEvent): void => {
+    const dx = ev.clientX - startX
+    const dy = ev.clientY - startY
+    if (dir.includes('e')) {
+      panelW.value = clamp(startW + dx, MIN_W, MAX_W)
+    }
+    if (dir.includes('w')) {
+      panelW.value = clamp(startW - dx, MIN_W, MAX_W)
+    }
+    if (dir.includes('s')) {
+      panelH.value = clamp(startH + dy, MIN_H, MAX_H)
+    }
+    if (dir.includes('n')) {
+      panelH.value = clamp(startH - dy, MIN_H, MAX_H)
+    }
+  }
+  const onUp = (): void => {
+    window.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointerup', onUp)
+  }
+  window.addEventListener('pointermove', onMove)
+  window.addEventListener('pointerup', onUp)
+}
 
 // 聊天记录仅存于组件内存且全局挂载：用户登出或切换账号时必须清空，
 // 否则同一浏览器标签页的下一位用户（含游客）能看到上一用户的对话与订单卡片
@@ -179,7 +222,15 @@ watch(() => [messages.value.map((m) => [m.content, m.cards.length]), queryingLab
 
   <!-- 抽屉式聊天窗 -->
   <transition name="ai-panel">
-    <div v-if="visible" class="ai-panel">
+    <div
+      v-if="visible"
+      ref="panelRef"
+      class="ai-panel"
+      :style="{
+        width: panelW != null ? `${panelW}px` : undefined,
+        height: panelH != null ? `${panelH}px` : undefined,
+      }"
+    >
       <div class="ai-panel-header">
         <span class="ai-panel-title">AI 客服</span>
         <span class="ai-panel-sub">智能查询商品与订单</span>
@@ -286,6 +337,12 @@ watch(() => [messages.value.map((m) => [m.content, m.cards.length]), queryingLab
           发送
         </el-button>
       </div>
+
+      <!-- 拖拽调整大小手柄：面板锚定右下角，可拖左边缘/上边缘/左上角向外扩展，右下角向内收 -->
+      <div class="ai-resize-handle is-w" @pointerdown="onResizeStart($event, 'w')"></div>
+      <div class="ai-resize-handle is-n" @pointerdown="onResizeStart($event, 'n')"></div>
+      <div class="ai-resize-handle is-nw" @pointerdown="onResizeStart($event, 'nw')"></div>
+      <div class="ai-resize-handle is-se" @pointerdown="onResizeStart($event, 'se')"></div>
     </div>
   </transition>
 </template>
@@ -333,9 +390,66 @@ watch(() => [messages.value.map((m) => [m.content, m.cards.length]), queryingLab
   background-color: #fff;
   border-radius: 12px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.16);
-  /* 允许拖拽右下角调整聊天窗大小 */
-  resize: both;
   overflow: hidden;
+}
+
+/* 拖拽手柄：绝对定位的热区，压在面板边缘/角落上 */
+.ai-resize-handle {
+  position: absolute;
+  z-index: 10;
+  touch-action: none;
+}
+
+/* 左边缘：整条左边都可拖拽加宽（面板 overflow:hidden，热区须在面板内） */
+.ai-resize-handle.is-w {
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 7px;
+  cursor: ew-resize;
+}
+
+/* 上边缘：整条上边都可拖拽加高 */
+.ai-resize-handle.is-n {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 7px;
+  cursor: ns-resize;
+}
+
+/* 左上角 */
+.ai-resize-handle.is-nw {
+  left: 0;
+  top: 0;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+}
+
+/* 右下角（视觉提示：斜线） */
+.ai-resize-handle.is-se {
+  right: 0;
+  bottom: 0;
+  width: 18px;
+  height: 18px;
+  cursor: nwse-resize;
+}
+
+.ai-resize-handle.is-se::after {
+  content: '';
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--mall-border);
+  border-bottom: 2px solid var(--mall-border);
+  border-bottom-right-radius: 2px;
+}
+
+.ai-resize-handle.is-se:hover::after {
+  border-color: var(--mall-brand);
 }
 
 .ai-panel-header {
@@ -619,8 +733,11 @@ watch(() => [messages.value.map((m) => [m.content, m.cards.length]), queryingLab
     min-width: 0;
     max-width: none;
     border-radius: 12px 12px 0 0;
-    /* 移动端全屏展示，禁用拖拽调整 */
-    resize: none;
+  }
+
+  /* 移动端全屏展示，隐藏拖拽手柄 */
+  .ai-resize-handle {
+    display: none;
   }
 
   .ai-fab {
