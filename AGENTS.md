@@ -86,7 +86,8 @@ my_mall/
         ├── cart/            # 购物车（Redis）—— 已开发
         ├── order/           # 订单（oms_*）—— 已开发
         ├── seckill/         # 秒杀（sms_*）—— 已开发
-        └── admin/           # 后台管理接口 —— 已开发
+        ├── admin/           # 后台管理接口 —— 已开发
+        └── ai/              # AI 智能客服（LLM + Function Calling + SSE 流式）—— 已开发
 ```
 
 每个业务包内部分层：`controller` / `service`（接口 + `service/impl` 实现）/ `mapper` / `entity` / `dto`。

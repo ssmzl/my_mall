@@ -309,11 +309,17 @@ watch(() => [messages.value.map((m) => [m.content, m.cards.length]), queryingLab
   z-index: 2000;
   width: 400px;
   height: 70vh;
+  min-width: 320px;
+  min-height: 360px;
+  max-width: calc(100vw - 40px);
+  max-height: 92vh;
   display: flex;
   flex-direction: column;
   background-color: #fff;
   border-radius: 12px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.16);
+  /* 允许拖拽右下角调整聊天窗大小 */
+  resize: both;
   overflow: hidden;
 }
 
@@ -595,7 +601,11 @@ watch(() => [messages.value.map((m) => [m.content, m.cards.length]), queryingLab
     bottom: 0;
     width: 100vw;
     height: 80vh;
+    min-width: 0;
+    max-width: none;
     border-radius: 12px 12px 0 0;
+    /* 移动端全屏展示，禁用拖拽调整 */
+    resize: none;
   }
 
   .ai-fab {
