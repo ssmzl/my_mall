@@ -5,6 +5,7 @@ import DOMPurify from 'dompurify'
 import { ChatDotRound, Close, Position, Loading } from '@element-plus/icons-vue'
 import { createChatStream, parseToolResult } from '@/api/ai'
 import type { AiOrderDetail, AiOrderSummary, AiProduct } from '@/api/ai'
+import { useUserStore } from '@/stores/user'
 
 /**
  * 全局 AI 客服组件：右下角浮动按钮 + 抽屉式聊天窗。
@@ -49,6 +50,20 @@ const queryingLabel = ref('')
 const messages = ref<ChatMsg[]>([])
 const listRef = ref<HTMLElement>()
 let abortController: AbortController | null = null
+
+// 聊天记录仅存于组件内存且全局挂载：用户登出或切换账号时必须清空，
+// 否则同一浏览器标签页的下一位用户（含游客）能看到上一用户的对话与订单卡片
+const userStore = useUserStore()
+watch(
+  () => userStore.userId,
+  () => {
+    abortController?.abort()
+    abortController = null
+    sending.value = false
+    queryingLabel.value = ''
+    messages.value = []
+  },
+)
 
 /** 切换聊天窗；关闭时中断进行中的流 */
 function toggle(): void {

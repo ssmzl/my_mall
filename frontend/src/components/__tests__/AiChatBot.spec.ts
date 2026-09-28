@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import ElementPlus from 'element-plus'
 
 // mock SSE 封装（由测试用例手动驱动回调），parseToolResult 保留真实实现
@@ -10,6 +11,7 @@ vi.mock('@/api/ai', async (importOriginal) => {
 
 import { createChatStream } from '@/api/ai'
 import AiChatBot from '../AiChatBot.vue'
+import { useUserStore } from '@/stores/user'
 
 const mockedCreate = vi.mocked(createChatStream)
 
@@ -17,7 +19,7 @@ const mockedCreate = vi.mocked(createChatStream)
 async function mountOpenedBot() {
   const wrapper = mount(AiChatBot, {
     global: {
-      plugins: [ElementPlus],
+      plugins: [createPinia(), ElementPlus],
       components: {
         RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' },
       },
@@ -47,7 +49,7 @@ describe('AiChatBot', () => {
   })
 
   it('默认隐藏聊天窗，点击浮动按钮后显示欢迎语', async () => {
-    const wrapper = mount(AiChatBot, { global: { plugins: [ElementPlus] } })
+    const wrapper = mount(AiChatBot, { global: { plugins: [createPinia(), ElementPlus] } })
     expect(wrapper.find('.ai-panel').exists()).toBe(false)
 
     await wrapper.find('.ai-fab').trigger('click')
@@ -181,5 +183,35 @@ describe('AiChatBot', () => {
     await input.trigger('keydown.enter')
     await flushPromises()
     expect(mockedCreate).toHaveBeenCalledTimes(2)
+  })
+
+  it('切换登录用户后清空聊天记录，避免同一标签页的下一位用户看到上一用户对话', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const wrapper = mount(AiChatBot, {
+      global: {
+        plugins: [pinia, ElementPlus],
+        components: {
+          RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' },
+        },
+      },
+    })
+    await wrapper.find('.ai-fab').trigger('click')
+    const cap = await captureHandlers()
+
+    const input = wrapper.find('textarea')
+    await input.setValue('你好')
+    await input.trigger('keydown.enter')
+    await flushPromises()
+    cap.get().onMessage('你好，请问有什么可以帮您？')
+    cap.get().onDone()
+    await flushPromises()
+    expect(wrapper.findAll('.ai-msg')).toHaveLength(2)
+
+    // 模拟另一用户登录（登出后 userId 回到 0 同理）：聊天记录必须清空
+    useUserStore().userId = 2
+    await flushPromises()
+    expect(wrapper.findAll('.ai-msg')).toHaveLength(0)
+    expect(wrapper.find('.ai-empty').exists()).toBe(true)
   })
 })

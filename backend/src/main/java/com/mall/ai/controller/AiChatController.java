@@ -4,6 +4,7 @@ import com.mall.ai.config.AiConfigProperties;
 import com.mall.ai.dto.AiChatDTO;
 import com.mall.ai.service.ChatService;
 import com.mall.common.BizException;
+import com.mall.security.AuthInterceptor;
 import com.mall.security.LoginUser;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.util.concurrent.Executor;
 
@@ -62,8 +64,28 @@ public class AiChatController {
         checkRateLimit(userId);
 
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MILLIS);
+        // AI 未启用：按角色差异化提示（管理员提示配置入口，普通用户仅提示暂未开放，不暴露配置细节）
+        if (!aiProps.available()) {
+            sendDisabledNotice(emitter);
+            return emitter;
+        }
         aiChatExecutor.execute(() -> chatService.streamChat(userId, dto.getMessage(), emitter));
         return emitter;
+    }
+
+    /** AI 未启用提示：管理员指向后台配置页，普通用户仅提示功能暂未开放 */
+    private void sendDisabledNotice(SseEmitter emitter) {
+        LoginUser loginUser = LoginUser.get();
+        boolean admin = loginUser != null && AuthInterceptor.ROLE_ADMIN == loginUser.getRole();
+        String tip = admin
+                ? "AI 客服未启用：请前往「后台管理 → AI 配置」启用并填写 api-key"
+                : "AI 客服暂未开放，请稍后再试";
+        try {
+            emitter.send(SseEmitter.event().name("error").data(tip));
+        } catch (IOException e) {
+            log.warn("AI 未启用提示发送失败: {}", e.getMessage());
+        }
+        emitter.complete();
     }
 
     /** 固定窗口限流：Redis 计数 key 首次写入时设 1 分钟过期，超阈值抛 429 */
